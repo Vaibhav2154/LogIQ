@@ -20,6 +20,16 @@ const MitrePage = () => {
   const [terminalText, setTerminalText] = useState('');
   const [showCursor, setShowCursor] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [techniques, setTechniques] = useState<Technique[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalTechniques: 0,
+    totalTactics: 0,
+    totalPlatforms: 0
+  });
+  const [killChainPhases, setKillChainPhases] = useState([
+    { id: 'all', name: 'ALL_PHASES', shortName: 'ALL', color: 'border-gray-500/50 text-gray-400', bgColor: 'bg-gray-900/30' }
+  ]);
 
   const handleTechniqueClick = (technique: Technique) => {
     // Navigate to chat page with the technique as a pre-filled query
@@ -62,22 +72,69 @@ const MitrePage = () => {
       window.removeEventListener('resize', checkMobile);
     };
   }, []);
-  
-  const killChainPhases = [
-    { id: 'all', name: 'ALL_PHASES', shortName: 'ALL', color: 'border-gray-500/50 text-gray-400', bgColor: 'bg-gray-900/30' },
-    { id: 'initial-access', name: 'INITIAL_ACCESS', shortName: 'INIT', color: 'border-red-500/50 text-red-400', bgColor: 'bg-red-900/30' },
-    { id: 'execution', name: 'EXECUTION', shortName: 'EXEC', color: 'border-orange-500/50 text-orange-400', bgColor: 'bg-orange-900/30' },
-    { id: 'persistence', name: 'PERSISTENCE', shortName: 'PERS', color: 'border-yellow-500/50 text-yellow-400', bgColor: 'bg-yellow-900/30' },
-    { id: 'privilege-escalation', name: 'PRIV_ESCALATION', shortName: 'PRIV', color: 'border-pink-500/50 text-pink-400', bgColor: 'bg-pink-900/30' },
-    { id: 'defense-evasion', name: 'DEFENSE_EVASION', shortName: 'DEF', color: 'border-purple-500/50 text-purple-400', bgColor: 'bg-purple-900/30' },
-    { id: 'credential-access', name: 'CRED_ACCESS', shortName: 'CRED', color: 'border-indigo-500/50 text-indigo-400', bgColor: 'bg-indigo-900/30' },
-    { id: 'discovery', name: 'DISCOVERY', shortName: 'DISC', color: 'border-blue-500/50 text-blue-400', bgColor: 'bg-blue-900/30' },
-    { id: 'lateral-movement', name: 'LATERAL_MOVEMENT', shortName: 'LAT', color: 'border-cyan-500/50 text-cyan-400', bgColor: 'bg-cyan-900/30' },
-    { id: 'collection', name: 'COLLECTION', shortName: 'COLL', color: 'border-teal-500/50 text-teal-400', bgColor: 'bg-teal-900/30' },
-    { id: 'command-and-control', name: 'C2_COMMAND', shortName: 'C2', color: 'border-green-500/50 text-green-400', bgColor: 'bg-green-900/30' },
-    { id: 'exfiltration', name: 'EXFILTRATION', shortName: 'EXFIL', color: 'border-lime-500/50 text-lime-400', bgColor: 'bg-lime-900/30' },
-    { id: 'impact', name: 'IMPACT', shortName: 'IMPACT', color: 'border-red-600/50 text-red-400', bgColor: 'bg-red-900/50' }
-  ];
+
+  // Fetch MITRE data from backend
+  useEffect(() => {
+    const fetchMitreData = async () => {
+      try {
+        setLoading(true);
+        const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+        
+        const [techniquesRes, statsRes, tacticsRes, platformsRes] = await Promise.all([
+          fetch(`${BACKEND_URL}/api/mitre/techniques?limit=200`),
+          fetch(`${BACKEND_URL}/api/mitre/stats`),
+          fetch(`${BACKEND_URL}/api/mitre/tactics`),
+          fetch(`${BACKEND_URL}/api/mitre/platforms`)
+        ]);
+
+        if (techniquesRes.ok) {
+          const techniquesData = await techniquesRes.json();
+          setTechniques(techniquesData);
+        }
+
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          setStats(prev => ({ ...prev, totalTechniques: statsData.total_techniques }));
+        }
+
+        if (tacticsRes.ok) {
+          const tacticsData = await tacticsRes.json();
+          setStats(prev => ({ ...prev, totalTactics: tacticsData.length }));
+          
+          // Build dynamic kill chain phases
+          const phases = [
+            { id: 'all', name: 'ALL_PHASES', shortName: 'ALL', color: 'border-gray-500/50 text-gray-400', bgColor: 'bg-gray-900/30' },
+            ...tacticsData.map((tactic: string, index: number) => ({
+              id: tactic.toLowerCase().replace(/\s+/g, '-'),
+              name: tactic.toUpperCase(),
+              shortName: tactic.substring(0, 4).toUpperCase(),
+              color: `border-${['red', 'orange', 'yellow', 'pink', 'purple', 'indigo', 'blue', 'cyan', 'teal', 'green', 'lime'][index % 11]}-500/50 text-${['red', 'orange', 'yellow', 'pink', 'purple', 'indigo', 'blue', 'cyan', 'teal', 'green', 'lime'][index % 11]}-400`,
+              bgColor: `bg-${['red', 'orange', 'yellow', 'pink', 'purple', 'indigo', 'blue', 'cyan', 'teal', 'green', 'lime'][index % 11]}-900/30`
+            }))
+          ];
+          setKillChainPhases(phases);
+        }
+
+        if (platformsRes.ok) {
+          const platformsData = await platformsRes.json();
+          setStats(prev => ({ ...prev, totalPlatforms: platformsData.length }));
+        }
+      } catch (error) {
+        console.error('Error fetching MITRE data:', error);
+        // Fallback to sample data if API fails
+        setTechniques(sampleTechniques);
+        setStats({
+          totalTechniques: sampleTechniques.length,
+          totalTactics: 12,
+          totalPlatforms: 8
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMitreData();
+  }, []);
 
   const sampleTechniques: Technique[] = [
     {
@@ -111,8 +168,8 @@ const MitrePage = () => {
   ];
 
   const filteredTechniques = selectedPhase === 'all' 
-    ? sampleTechniques 
-    : sampleTechniques.filter(tech => tech.phase === selectedPhase);
+    ? techniques 
+    : techniques.filter(tech => tech.phase === selectedPhase);
 
   const getPhaseStyle = (phaseId: string) => {
     const phase = killChainPhases.find(p => p.id === phaseId);
@@ -193,7 +250,9 @@ const MitrePage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-400 text-xs">[TOTAL_TECHNIQUES]</p>
-                <p className="text-xl sm:text-2xl font-bold text-cyan-400">{sampleTechniques.length}</p>
+                <p className="text-xl sm:text-2xl font-bold text-cyan-400">
+                  {loading ? '...' : stats.totalTechniques}
+                </p>
               </div>
               <div className="text-cyan-400 text-lg sm:text-xl">🛡️</div>
             </div>
@@ -203,7 +262,9 @@ const MitrePage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-purple-400 text-xs">[KILL_CHAIN_PHASES]</p>
-                <p className="text-xl sm:text-2xl font-bold text-purple-400">{killChainPhases.length - 1}</p>
+                <p className="text-xl sm:text-2xl font-bold text-purple-400">
+                  {loading ? '...' : stats.totalTactics}
+                </p>
               </div>
               <div className="text-purple-400 text-lg sm:text-xl">⚔️</div>
             </div>
@@ -213,7 +274,9 @@ const MitrePage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-400 text-xs">[PLATFORMS]</p>
-                <p className="text-xl sm:text-2xl font-bold text-green-400">8</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-400">
+                  {loading ? '...' : stats.totalPlatforms}
+                </p>
               </div>
               <div className="text-green-400 text-lg sm:text-xl">💻</div>
             </div>
@@ -244,8 +307,16 @@ const MitrePage = () => {
             )}
           </h2>
           
-          <div className="space-y-3 sm:space-y-4">
-            {filteredTechniques.map((technique) => {
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="w-12 h-12 mx-auto mb-4 bg-black border-2 border-green-500 flex items-center justify-center animate-spin">
+                <span className="text-green-400">⟳</span>
+              </div>
+              <p className="text-green-400 font-mono">[LOADING_MITRE_DATA]</p>
+            </div>
+          ) : (
+            <div className="space-y-3 sm:space-y-4">
+              {filteredTechniques.map((technique) => {
               const phaseStyle = getPhaseStyle(technique.phase);
               return (
                 <div 
@@ -282,10 +353,11 @@ const MitrePage = () => {
                   </div>
                 </div>
               );
-            })}
-          </div>
+              })}
+            </div>
+          )}
           
-          {filteredTechniques.length === 0 && (
+          {!loading && filteredTechniques.length === 0 && (
             <div className="text-center py-8 sm:py-12">
               <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 bg-black border-2 border-green-500 flex items-center justify-center">
                 <span className="text-xl sm:text-2xl text-green-400">🔍</span>
