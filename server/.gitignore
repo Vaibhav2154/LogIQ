@@ -178,3 +178,4 @@ cython_debug/
 .vscode/
 
 attack-stix-data/
+chroma_db/
