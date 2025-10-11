@@ -132,13 +132,12 @@ async def health_check():
 async def global_exception_handler(request, exc):
     """Global exception handler for unhandled errors."""
     logger.error(f"Unhandled exception: {str(exc)}")
-    error_response = ErrorResponse(
-        error="Internal server error",
-        detail=str(exc)
-    )
     return JSONResponse(
         status_code=500,
-        content=error_response.model_dump(mode='json')
+        content=ErrorResponse(
+            error="Internal server error",
+            detail=str(exc)
+        ).dict()
     )
 
 if __name__ == "__main__":
