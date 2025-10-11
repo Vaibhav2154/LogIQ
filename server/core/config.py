@@ -1,46 +1,47 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
 import logging
 from dotenv import load_dotenv
 
 load_dotenv()
 
-class Settings(BaseSettings):    
-    LOG_LEVEL: str = "INFO"
-    MONGO_URL: str
-    SECRET_KEY: str
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    
-    
-    GEMINI_API_KEY: str
-    CHROMA_PERSIST_DIRECTORY: str = "./chroma_db"
-    ANONYMIZED_TELEMETRY: str = "False"
-    API_HOST: str = "localhost"
-    API_PORT: str = "8000"
-    MAX_LOG_LENGTH: str = "10000"
-    MAX_RESULTS: str = "5"
-    
-    # AWS settings (optional)
-    AWS_ACCESS_KEY_ID: str = ""
-    AWS_SECRET_ACCESS_KEY: str = ""
-    AWS_REGION: str = "us-east-1"
-    AWS_SESSION_TOKEN: str = ""
-    
-    # Encryption settings
-    ENCRYPTION_MASTER_KEY: str = "default-encryption-key-change-in-production"
-    
-    model_config = SettingsConfigDict(env_file=".env")
-    
-    
+
+class Settings(BaseSettings):
+  MONGO_URL: str
+  SECRET_KEY: str
+  ALGORITHM: str = "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+  
+  # ForensIQ specific settings
+  GEMINI_API_KEY: str
+  CHROMA_PERSIST_DIRECTORY: str = "./chroma_db"
+  ANONYMIZED_TELEMETRY: str = "False"
+  LOG_LEVEL: str = "INFO"
+  API_HOST: str = "localhost"
+  API_PORT: str = "8000"
+  MAX_LOG_LENGTH: str = "10000"
+  MAX_RESULTS: str = "5"
+  
+  # AWS settings (optional)
+  AWS_ACCESS_KEY_ID: str = ""
+  AWS_SECRET_ACCESS_KEY: str = ""
+  AWS_REGION: str = "us-east-1"
+  AWS_SESSION_TOKEN: str = ""
+  
+  # Encryption settings
+  ENCRYPTION_MASTER_KEY: str = "default-encryption-key-change-in-production"
+  
+  model_config = SettingsConfigDict(env_file=".env")
+
+
 settings = Settings()
+
 
 class Config:
     GEMINI_API_KEY = settings.GEMINI_API_KEY
     CHROMA_PERSIST_DIRECTORY = settings.CHROMA_PERSIST_DIRECTORY
     EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-    HOST = settings.API_HOST
-    PORT = int(settings.API_PORT)
-    SECRET_KEY = settings.SECRET_KEY
+    
     ATTACK_DATA_PATH = "./attack-stix-data/enterprise-attack/enterprise-attack-17.1.json"
     
     LOG_LEVEL = settings.LOG_LEVEL
