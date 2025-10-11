@@ -4,22 +4,43 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from datetime import datetime
 from core import Config, logger
+from services import GeminiService, ChromaDBService, AWSBedrockService
+from routers import auth, users, analysis_router, mitre
+from routers import monitoring
+from routers.analysis import set_services
+from routers.mitre import set_mitre_services
 from model import HealthCheck, ErrorResponse, DatabaseStats
-from routers import auth, users
 
-
+gemini_service: GeminiService = None
+chromadb_service: ChromaDBService = None
+aws_bedrock_service: AWSBedrockService = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan - startup and shutdown events."""
     logger.info("Starting ForensIQ API server...")
-    # Place startup initialization here (DB connections, clients, etc.)
     try:
-        # yield control back to FastAPI so the app can start
-        yield
-    finally:
-        # cleanup / shutdown tasks
-        logger.info("Shutting down ForensIQ API server...")
+        global gemini_service, chromadb_service, aws_bedrock_service
+        logger.info("Initializing Gemini AI service...")
+        gemini_service = GeminiService()
+        logger.info("Initializing ChromaDB service...")
+        chromadb_service = ChromaDBService()
+        logger.info("Initializing AWS Bedrock service...")
+        aws_bedrock_service = AWSBedrockService()
+        logger.info("Initializing MITRE ATT&CK database...")
+        db_initialized = await chromadb_service.initialize_database()
+        if not db_initialized:
+            logger.error("Failed to initialize database")
+            raise Exception("Database initialization failed")
+        # Set services for routers
+        set_services(gemini_service, chromadb_service)
+        set_mitre_services(aws_bedrock_service, chromadb_service, gemini_service)
+        logger.info("All services initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize services: {str(e)}")
+        raise
+    yield
+    logger.info("Shutting down ForensIQ API server...")
 
 app = FastAPI(
     title="ForensIQ - MITRE ATT&CK Log Analysis API",
@@ -41,6 +62,9 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(analysis_router)
+app.include_router(monitoring.router)
+app.include_router(mitre.router)
 
 @app.get("/", response_model=dict)
 async def root():
@@ -108,12 +132,13 @@ async def health_check():
 async def global_exception_handler(request, exc):
     """Global exception handler for unhandled errors."""
     logger.error(f"Unhandled exception: {str(exc)}")
+    error_response = ErrorResponse(
+        error="Internal server error",
+        detail=str(exc)
+    )
     return JSONResponse(
         status_code=500,
-        content=ErrorResponse(
-            error="Internal server error",
-            detail=str(exc)
-        ).dict()
+        content=error_response.model_dump(mode='json')
     )
 
 if __name__ == "__main__":
