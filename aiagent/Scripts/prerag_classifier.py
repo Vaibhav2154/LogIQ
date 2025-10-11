@@ -51,11 +51,22 @@ class PreRAGClassifier:
         """Load the ML model"""
         try:
             if model_path is None:
-                # Find latest model
-                models_dir = Path("models")
-                model_files = list(models_dir.glob("*threat_model*.joblib"))
-                if not model_files:
-                    model_files = list(models_dir.glob("*.joblib"))
+                # Find latest model - check multiple possible locations
+                possible_dirs = [
+                    Path("models"),  # Current directory
+                    Path("Scripts/models"),  # Scripts subdirectory
+                    Path(__file__).parent / "models",  # Same directory as this script
+                    Path(__file__).parent.parent / "Scripts" / "models"  # Scripts/models from aiagent root
+                ]
+                
+                model_files = []
+                for models_dir in possible_dirs:
+                    if models_dir.exists():
+                        model_files = list(models_dir.glob("*threat_model*.joblib"))
+                        if not model_files:
+                            model_files = list(models_dir.glob("*.joblib"))
+                        if model_files:
+                            break
                 
                 if model_files:
                     model_path = max(model_files, key=lambda x: x.stat().st_mtime)

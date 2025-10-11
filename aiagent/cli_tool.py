@@ -77,10 +77,12 @@ LOGS_CACHE = DEFAULT_CONFIG_DIR / "logs_cache"
 
 def print_banner():
     """Display LogIQ CLI banner."""
-    banner_text = """
-    LogIQ CLI Tool
-    ==============
-    Automated Log Analysis & Threat Detection
+    banner_text = """                  
+ __    _____ _____ _____ _____ 
+|  |  |     |   __|     |     |
+|  |__|  |  |  |  |-   -|  |  |
+|_____|_____|_____|_____|__  _|
+                           |__|
     """
     brand_color = "#C15F3C"
     console.print(Panel(
