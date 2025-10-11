@@ -62,13 +62,13 @@ class RagQueryResponse(BaseModel):
 @router.post("/search", response_model=MitreSearchResponse)
 async def search_mitre_techniques(request: MitreSearchRequest):
     """
-    Search MITRE ATT&CK techniques using ChromaDB's default embeddings.
+    Search MITRE ATT&CK techniques using AWS Titan embeddings for enhanced context retrieval.
     
-    This endpoint uses ChromaDB's built-in embedding function to provide
+    This endpoint uses AWS Bedrock Titan text embedding model to provide more accurate
     semantic search results from the MITRE ATT&CK framework database.
     """
     try:
-        if not chromadb_service:
+        if not aws_bedrock_service or not chromadb_service:
             raise HTTPException(
                 status_code=503, 
                 detail="MITRE search services not available"
@@ -76,64 +76,21 @@ async def search_mitre_techniques(request: MitreSearchRequest):
         
         logger.info(f"Searching MITRE techniques with query: {request.query}")
         
-        # Search techniques using ChromaDB's default embeddings
-        techniques = await chromadb_service.search_techniques(
+        # Search techniques using AWS Titan embeddings
+        techniques = await aws_bedrock_service.search_mitre_techniques(
             query=request.query,
+            chromadb_service=chromadb_service,
             n_results=request.max_results
         )
         
         # Generate comprehensive response using preferred LLM service (Gemini -> AWS Bedrock)
         llm_for_response = gemini_service if gemini_service else aws_bedrock_service
+        response = await llm_for_response.generate_mitre_response(
+            query=request.query,
+            context_techniques=techniques
+        )
         
-        # Build response data
-        response_data = {
-            "query": request.query,
-            "relevant_techniques": techniques,
-            "summary": f"Found {len(techniques)} relevant MITRE ATT&CK techniques",
-            "context": "",
-            "embedding_model": "chromadb-default",
-            "total_techniques": len(techniques)
-        }
-        
-        # Add context text from top techniques
-        context_text = ""
-        for technique in techniques[:3]:  # Use top 3 most relevant
-            context_text += f"""
-Technique: {technique['name']} ({technique['technique_id']})
-Description: {technique['description']}
-Tactics: {', '.join(technique['kill_chain_phases'])}
-Platforms: {', '.join(technique['platforms'])}
-Relevance Score: {technique['relevance_score']:.3f}
-
-"""
-        response_data["context"] = context_text.strip()
-        
-        # Add insights based on the techniques found
-        if techniques:
-            top_technique = techniques[0]
-            response_data["top_match"] = {
-                "technique_id": top_technique['technique_id'],
-                "name": top_technique['name'],
-                "relevance_score": top_technique['relevance_score'],
-                "description": top_technique['description'][:200] + "..." if len(top_technique['description']) > 200 else top_technique['description']
-            }
-            
-            # Extract common tactics and platforms
-            all_tactics = []
-            all_platforms = []
-            for tech in techniques:
-                all_tactics.extend(tech.get('kill_chain_phases', []))
-                all_platforms.extend(tech.get('platforms', []))
-            
-            # Get unique and count occurrences
-            from collections import Counter
-            tactic_counts = Counter(all_tactics)
-            platform_counts = Counter(all_platforms)
-            
-            response_data["common_tactics"] = [tactic for tactic, count in tactic_counts.most_common(5)]
-            response_data["common_platforms"] = [platform for platform, count in platform_counts.most_common(5)]
-        
-        return MitreSearchResponse(**response_data)
+        return MitreSearchResponse(**response)
         
     except Exception as e:
         logger.error(f"Error in MITRE search endpoint: {str(e)}")
@@ -198,7 +155,7 @@ async def get_technique_details(technique_id: str):
             kill_chain_phases=metadata.get('kill_chain_phases', '').split(',') if metadata.get('kill_chain_phases') else [],
             platforms=metadata.get('platforms', '').split(',') if metadata.get('platforms') else [],
             relevance_score=1.0,  # Exact match
-            embedding_model='chromadb-default'
+            embedding_model='aws-titan-v2'
         )
         
         return technique_detail
@@ -341,6 +298,10 @@ async def get_mitre_stats():
         
         stats = await chromadb_service.get_collection_stats()
         
+        # Add embedding model info
+        stats['embedding_model'] = 'aws-titan-v2'
+        stats['embedding_dimension'] = 1024
+        
         return stats
         
     except Exception as e:
@@ -359,7 +320,7 @@ async def batch_search_mitre_techniques(
     Limited to 10 queries per request to prevent abuse.
     """
     try:
-        if not chromadb_service:
+        if not aws_bedrock_service or not chromadb_service:
             raise HTTPException(
                 status_code=503,
                 detail="MITRE search services not available"
@@ -374,37 +335,21 @@ async def batch_search_mitre_techniques(
         results = []
         for query in queries:
             try:
-                # Search techniques using ChromaDB's default embeddings
-                techniques = await chromadb_service.search_techniques(
+                # Search techniques using AWS Titan embeddings
+                techniques = await aws_bedrock_service.search_mitre_techniques(
                     query=query,
+                    chromadb_service=chromadb_service,
                     n_results=5  # Limit results for batch processing
                 )
                 
-                # Build response data
-                response_data = {
-                    "query": query,
-                    "relevant_techniques": techniques,
-                    "summary": f"Found {len(techniques)} relevant MITRE ATT&CK techniques",
-                    "context": "",
-                    "embedding_model": "chromadb-default",
-                    "total_techniques": len(techniques)
-                }
+                # Generate response using preferred LLM service (Gemini -> AWS Bedrock)
+                llm_for_response = gemini_service if gemini_service else aws_bedrock_service
+                response = await llm_for_response.generate_mitre_response(
+                    query=query,
+                    context_techniques=techniques
+                )
                 
-                # Add context text from top techniques
-                context_text = ""
-                for technique in techniques[:3]:
-                    context_text += f"{technique['name']} ({technique['technique_id']}): {technique['description'][:100]}...\n"
-                response_data["context"] = context_text.strip()
-                
-                if techniques:
-                    response_data["top_match"] = {
-                        "technique_id": techniques[0]['technique_id'],
-                        "name": techniques[0]['name'],
-                        "relevance_score": techniques[0]['relevance_score'],
-                        "description": techniques[0]['description'][:200] + "..." if len(techniques[0]['description']) > 200 else techniques[0]['description']
-                    }
-                
-                results.append(MitreSearchResponse(**response_data))
+                results.append(MitreSearchResponse(**response))
                 
             except Exception as e:
                 logger.error(f"Error processing query '{query}': {str(e)}")
@@ -414,7 +359,7 @@ async def batch_search_mitre_techniques(
                     relevant_techniques=[],
                     summary=f"Error processing query: {str(e)}",
                     context="",
-                    embedding_model="chromadb-default",
+                    embedding_model="aws-titan-v2",
                     total_techniques=0
                 ))
         
@@ -450,9 +395,10 @@ async def rag_mitre_query(request: RagQueryRequest):
         
         logger.info(f"Processing RAG query: {request.query}")
 
-        # Search for relevant techniques using ChromaDB's default embeddings
-        relevant_techniques = await chromadb_service.search_techniques(
+        # Search for relevant techniques using embeddings
+        relevant_techniques = await aws_bedrock_service.search_mitre_techniques(
             query=request.query,
+            chromadb_service=chromadb_service,
             n_results=request.max_context_techniques
         )
 
@@ -505,7 +451,7 @@ async def rag_mitre_query(request: RagQueryRequest):
             relevant_techniques=response_techniques,
             confidence_score=round(confidence_score, 3),
             processing_time_ms=round(processing_time, 2),
-            embedding_model="chromadb-default",
+            embedding_model="aws-titan-v2",
             total_techniques_found=len(relevant_techniques)
         )
         
