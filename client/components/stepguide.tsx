@@ -43,8 +43,8 @@ const StepGuide: React.FC = () => {
     id: 1,
     title: 'START_SERVER.SYS',
     shortTitle: 'START_SERVER',
-    description: 'Start your ForensIQ FastAPI server',
-    shortDescription: 'Run ForensIQ server',
+  description: 'Start your LogIQ FastAPI server',
+  shortDescription: 'Run LogIQ server',
     commands: [
       'cd d:\\forensiq\\server',
       'python main.py'
@@ -67,7 +67,7 @@ INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)`,
     description: 'Login or register using the CLI tool',
     shortDescription: 'Login/Register via CLI',
     commands: [
-      'cd d:\\forensiq\\aiagent',
+  'cd d:\\logiq\\aiagent',
       'python cli_tool.py auth login --username vaibhav',
       'python cli_tool.py auth register --username vaibhav --email vaibhav@example.com'
     ],
@@ -282,7 +282,7 @@ High-threat interval: 60 seconds`,
             <ul className="list-disc pl-5 text-gray-200 text-sm sm:text-base space-y-1">
               <li>The AI agent is <span className="text-cyan-300 font-bold">automatically initialized</span> and managed by the CLI tool (<span className="text-green-300 font-mono">cli_tool.py</span>). You do <span className="text-cyan-300 font-bold">not</span> interact with it directly.</li>
               <li>All advanced analysis and agent management is performed via CLI commands: <span className="text-green-300 font-mono">analyze --enhanced</span>, <span className="text-green-300 font-mono">analyze --ai-agent</span>, <span className="text-green-300 font-mono">agent status</span>, <span className="text-green-300 font-mono">agent configure</span>.</li>
-              <li>The agent's state and learning data are stored and handled by the CLI tool in your <span className="text-green-300 font-mono">~/.forensiq</span> directory (<span className="text-green-300 font-mono">ai_agent_state.json</span>).</li>
+              <li>The agent's state and learning data are stored and handled by the CLI tool in your <span className="text-green-300 font-mono">~/.logiq</span> directory (<span className="text-green-300 font-mono">ai_agent_state.json</span>).</li>
               <li>For complete documentation, see the <span className="text-green-300 font-mono">CLI_USER_GUIDE.md</span> or use <span className="text-green-300 font-mono">python cli_tool.py --help</span> and <span className="text-green-300 font-mono">python cli_tool.py agent --help</span>.</li>
             </ul>
           </div>
@@ -297,7 +297,7 @@ High-threat interval: 60 seconds`,
               &gt; STEP_BY_STEP_EXECUTION_PROTOCOL --MODE=INTERACTIVE
             </div>
             <p className="text-gray-300 mt-4 text-sm sm:text-base">
-              Follow this linked process chain to deploy the ForensIQ CLI tool with AI agent integration for automated cyber threat detection.
+              Follow this linked process chain to deploy the LogIQ CLI tool with AI agent integration for automated cyber threat detection.
             </p>
           </div>
 

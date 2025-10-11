@@ -18,7 +18,7 @@ aws_bedrock_service: AWSBedrockService = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan - startup and shutdown events."""
-    logger.info("Starting ForensIQ API server...")
+    logger.info("Starting LogIQ API server...")
     try:
         global gemini_service, chromadb_service, aws_bedrock_service
         logger.info("Initializing Gemini AI service...")
@@ -40,10 +40,10 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize services: {str(e)}")
         raise
     yield
-    logger.info("Shutting down ForensIQ API server...")
+    logger.info("Shutting down LogIQ API server...")
 
 app = FastAPI(
-    title="ForensIQ - MITRE ATT&CK Log Analysis API",
+    title="LogIQ - MITRE ATT&CK Log Analysis API",
     description="AI-powered system log analysis with MITRE ATT&CK technique matching using Gemini AI and ChromaDB RAG",
     version="1.0.0",
     docs_url="/docs",
@@ -70,9 +70,9 @@ app.include_router(mitre.router)
 async def root():
     """Root endpoint with API information."""
     return {
-        "message": "ForensIQ - MITRE ATT&CK Log Analysis API",
+            "message": "LogIQ - MITRE ATT&CK Log Analysis API",
         "version": "1.0.0",
-        "description": "AI-powered system log analysis with MITRE ATT&CK technique matching",
+    "description": "AI-powered system log analysis with MITRE ATT&CK technique matching",
         "docs": "/docs",
         "health": "/health",
         "timestamp": datetime.utcnow().isoformat()

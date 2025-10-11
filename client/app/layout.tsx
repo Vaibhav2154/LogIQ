@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FORENSIQ - Cyber Threat Analysis Platform",
+  title: "LogIQ - Cyber Threat Analysis Platform",
   description: "Advanced log analysis and threat detection using AI-powered MITRE ATT&CK framework",
 };
 
