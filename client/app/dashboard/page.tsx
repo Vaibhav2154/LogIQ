@@ -2,6 +2,7 @@
 import Navbar from '@/components/navbar'
 import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import MarkdownRenderer from '@/hooks/MarkDownRenderer'
 
 const DashboardPage = () => {
   const [isVisible, setIsVisible] = useState(false)
@@ -244,6 +245,30 @@ const recentSingleAnalyses  = async(elementId:string)=>{
       default: return 'text-gray-400 bg-gray-900/30 border-gray-500/30'
     }
   }, [])
+
+  const renderStructuredLog = (summary: string) => {
+    if (!summary) return <div>No summary available</div>;
+
+    // Split the sections by headings
+    const sections = summary.split(/\n(?=###?)/); // Split at lines starting with # or ##
+    
+    return sections.map((section, idx) => {
+      // Extract heading
+      const headingMatch = section.match(/^(###? ?)(.+)/);
+      const content = headingMatch ? section.replace(headingMatch[0], '').trim() : section;
+
+      return (
+        <div key={idx} className="mb-4">
+          {headingMatch && (
+            <h3 className="text-cyan-400 font-semibold mb-2">{headingMatch[2]}</h3>
+          )}
+          <div className="bg-black/50 border border-gray-700/30 p-4 text-green-400 whitespace-pre-wrap text-sm max-h-64 overflow-y-auto">
+            {content}
+          </div>
+        </div>
+      );
+    });
+  };
 
   const getActivityIcon = useCallback((type: string) => {
     switch (type.toLowerCase()) {
@@ -617,10 +642,11 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                 </div>
 
                 {/* Summary */}
-                <div className="mb-6">
+                <div className="mb-6 ">
                   <div className="text-cyan-400 text-sm mb-2">[THREAT_SUMMARY.LOG]</div>
                   <div className="bg-black/50 border border-gray-700/30 p-4 text-green-400 whitespace-pre-wrap text-sm max-h-64 overflow-y-auto">
-                    {selectedAnalysis.summary || 'No summary available'}
+                     <MarkdownRenderer markdown={selectedAnalysis.summary} />
+                    
                   </div>
                 </div>
 
