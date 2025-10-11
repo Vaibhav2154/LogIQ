@@ -10,7 +10,6 @@ __pycache__/
 .venv/
 uv.lock
 
-server/data/cybersecurity_threat_detection_logs.csv
 # Distribution / packaging
 .Python
 build/

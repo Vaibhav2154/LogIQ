@@ -139,25 +139,14 @@ class EncryptionService:
                                summary: str,
                                techniques: list,
                                enhanced_analysis: Optional[str],
-                               hashed_password: str) -> Tuple[Dict[str, str], str]:
+                               user_id: str) -> Tuple[Dict[str, str], str]:
         """
-        Encrypt all analysis results using only hashed password.
-        
-        Args:
-            summary: Analysis summary text
-            techniques: List of techniques
-            enhanced_analysis: Optional enhanced analysis
-            hashed_password: User's hashed password to use as encryption key
+        Encrypt all analysis results.
         
         Returns:
             Tuple of (encrypted_data_dict, key_id)
         """
-        # Use hashed password directly for encryption
-        key_material = hashlib.sha256(hashed_password.encode()).digest()
-        key = base64.urlsafe_b64encode(key_material)
-        key_id = f"pwd_{hashlib.md5(hashed_password.encode()).hexdigest()[:8]}"
-        logger.info(f"Using hashed password for encryption: {key_id}")
-        
+        key, key_id = self._generate_user_key(user_id)
         cipher = Fernet(key)
         
         encrypted_data = {}
@@ -177,19 +166,10 @@ class EncryptionService:
 
     def decrypt_analysis_results(self,
                                  encrypted_data: Dict[str, str],
-                                 hashed_password: str) -> Dict[str, Any]:
-        """Decrypt all analysis results using only hashed password.
-        
-        Args:
-            encrypted_data: Dictionary of encrypted data
-            hashed_password: User's hashed password to use as decryption key
-        """
+                                 user_id: str) -> Dict[str, Any]:
+        """Decrypt all analysis results."""
         try:
-            # Use hashed password directly for decryption
-            key_material = hashlib.sha256(hashed_password.encode()).digest()
-            key = base64.urlsafe_b64encode(key_material)
-            logger.info(f"Using hashed password for decryption")
-                
+            key, _ = self._generate_user_key(user_id)
             cipher = Fernet(key)
             
             decrypted_data = {}
@@ -225,7 +205,7 @@ class EncryptionService:
             return decrypted_data
         
         except Exception as e:
-            logger.error(f"Failed to decrypt analysis results: {str(e)}")
+            logger.error(f"Failed to decrypt analysis results for user {user_id}: {str(e)}")
             return {
                 'summary': "",
                 'techniques': [],
