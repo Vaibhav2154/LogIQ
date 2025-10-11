@@ -4,7 +4,7 @@ from jose import JWTError, jwt
 from core import  security
 from core.config import settings
 from model.users import UserBase,UserCreate,UserInDB,Token,TokenData,LoginRequest
-from core.db import database
+from db import database
 
 router = APIRouter(tags=["Authentication"])
 
