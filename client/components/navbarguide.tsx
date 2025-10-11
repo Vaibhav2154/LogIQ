@@ -2,9 +2,11 @@
 import React, { useState } from 'react';
 import { Menu, X, Terminal, Shield, Book } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const pathname = usePathname();
 
   const navItems = [
     {
@@ -16,7 +18,7 @@ const Navbar: React.FC = () => {
   ];
 
   const isActiveLink = (href: string) => {
-    return window.location.pathname === href || (href === '/dashboard' && window.location.pathname === '/');
+    return pathname === href || (href === '/dashboard' && pathname === '/');
   };
 
   return (
