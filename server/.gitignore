@@ -174,8 +174,7 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
-# VS Code
-.vscode/
-
-attack-stix-data/
+# PyPI configuration file
+.pypirc/
 chroma_db/
+attack-stix-data/
