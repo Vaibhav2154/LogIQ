@@ -168,7 +168,7 @@ const recentSingleAnalyses  = async(elementId:string)=>{
       })
     );
 
-   setAllSingleAnalysis((prev) => [...prev, ...results]); // update state once
+   setAllSingleAnalysis(results); // Replace state instead of appending
     console.log("All single analyses:", results);
     console.log("All single analyses final:", allSingleAnalysis);
   } catch (err) {
