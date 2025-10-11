@@ -25,8 +25,19 @@ class AnalysisStorageService:
         return value
     
     async def store_analysis_result(self, user_id: str, request, response) -> str:
-        """Store encrypted analysis result."""
+        """Store encrypted analysis result using user's hashed password as encryption key."""
         try:
+            # Get user's hashed password from database to use as encryption key
+            user_doc = await database.get_collection("users").find_one({"username": user_id})
+            if not user_doc:
+                raise ValueError(f"User {user_id} not found in database")
+            
+            hashed_password = user_doc.get("hashed_password")
+            if not hashed_password:
+                raise ValueError(f"Hashed password not found for user {user_id}")
+            
+            logger.info(f"Using hashed password as encryption key for user {user_id}")
+            
             # Helper function to convert datetime objects to strings recursively
             def convert_datetimes_to_strings(obj):
                 if hasattr(obj, 'isoformat'):  # datetime object
@@ -66,12 +77,12 @@ class AnalysisStorageService:
             logger.info(f"  - Techniques: {len(serializable_techniques)} items")
             logger.info(f"  - Enhanced analysis: {clean_enhanced_analysis}")
             
-            # Encrypt the analysis results
+            # Encrypt the analysis results using user's hashed password only
             encrypted_results, key_id = encryption_service.encrypt_analysis_results(
                 summary=clean_summary,
                 techniques=serializable_techniques,
                 enhanced_analysis=clean_enhanced_analysis,
-                user_id=user_id
+                hashed_password=hashed_password  # Only use hashed password, no user_id
             )
             
             # Create document
@@ -100,8 +111,19 @@ class AnalysisStorageService:
             raise
     
     async def get_analysis_result(self, user_id: str, analysis_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieve and decrypt analysis result."""
+        """Retrieve and decrypt analysis result using user's hashed password as decryption key."""
         try:
+            # Get user's hashed password from database to use as decryption key
+            user_doc = await database.get_collection("users").find_one({"username": user_id})
+            if not user_doc:
+                logger.error(f"User {user_id} not found in database")
+                return None
+            
+            hashed_password = user_doc.get("hashed_password")
+            if not hashed_password:
+                logger.error(f"Hashed password not found for user {user_id}")
+                return None
+            
             # Find document
             doc = await self.collection.find_one({
                 "user_id": user_id,
@@ -112,7 +134,7 @@ class AnalysisStorageService:
                 logger.warning(f"Analysis {analysis_id} not found for user {user_id}")
                 return None
             
-            # Decrypt all data at once
+            # Decrypt all data at once using user's hashed password
             encrypted_payload = {
                 "summary": doc.get("encrypted_summary"),
                 "techniques": doc.get("encrypted_techniques"),
@@ -121,7 +143,7 @@ class AnalysisStorageService:
             
             decrypted_data = encryption_service.decrypt_analysis_results(
                 encrypted_data=encrypted_payload,
-                user_id=user_id
+                hashed_password=hashed_password  # Only use hashed password, no user_id
             )
             
             return {
