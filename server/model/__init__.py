@@ -1,4 +1,3 @@
-
 from .logs_model import HealthCheck, ErrorResponse, DatabaseStats, LogAnalysisResponse
 from .users import UserBase, UserCreate, UserUpdate, PasswordChange, UserInDB, Token, TokenData
 
