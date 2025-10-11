@@ -14,7 +14,7 @@ const Navbar = () => {
     { name: 'DASHBOARD.SYS', href: '/dashboard', icon: '📊', shortName: 'DASH' },
     { name: 'MITRE_ATTACK.DB', href: '/dashboard/mitre', icon: '🛡️', shortName: 'MITRE' },
     { name: 'ANALYSIS.EXE', href: '/dashboard/analysis', icon: '🔍', shortName: 'ANALYZE' },
-    //{ name: 'CLI_GUIDE', href: '/dashboard/cliguide', icon: '🖥️', shortName: 'CLI' }
+    { name: 'CLI_GUIDE', href: '/dashboard/cliguide', icon: '🖥️', shortName: 'CLI' }
   ]
 
   useEffect(() => {
