@@ -311,6 +311,55 @@ async def get_mitre_stats():
             detail=f"Internal server error: {str(e)}"
         )
 
+@router.get("/techniques", response_model=List[Dict[str, Any]])
+async def get_all_techniques(
+    limit: int = Query(100, description="Maximum number of techniques to return", ge=1, le=500),
+    offset: int = Query(0, description="Number of techniques to skip", ge=0)
+):
+    """
+    Get all MITRE ATT&CK techniques from the database.
+    """
+    try:
+        if not chromadb_service:
+            raise HTTPException(
+                status_code=503,
+                detail="ChromaDB service not available"
+            )
+
+        if not chromadb_service.collection:
+            raise HTTPException(
+                status_code=503,
+                detail="ChromaDB collection not initialized"
+            )
+
+        # Get all techniques with pagination
+        results = chromadb_service.collection.get(
+            limit=limit,
+            offset=offset
+        )
+        
+        techniques = []
+        if results.get('metadatas'):
+            for metadata in results['metadatas']:
+                if metadata:
+                    technique = {
+                        'id': metadata.get('technique_id', ''),
+                        'name': metadata.get('name', ''),
+                        'description': metadata.get('description', ''),
+                        'phase': metadata.get('kill_chain_phases', '').split(',')[0] if metadata.get('kill_chain_phases') else 'unknown',
+                        'platforms': metadata.get('platforms', '').split(',') if metadata.get('platforms') else []
+                    }
+                    techniques.append(technique)
+        
+        return techniques
+        
+    except Exception as e:
+        logger.error(f"Error getting all techniques: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+
 @router.post("/batch-search", response_model=List[MitreSearchResponse])
 async def batch_search_mitre_techniques(
     queries: List[str] = Body(..., description="List of search queries", max_items=10)
