@@ -123,7 +123,7 @@ const SecurityLogDashboard = () => {
               <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-red-500"></div>
               <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-yellow-500"></div>
               <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-500"></div>
-              <span className="ml-2 sm:ml-4 text-green-400 text-xs sm:text-sm">admin@forensiq:~/security_analysis#</span>
+              <span className="ml-2 sm:ml-4 text-green-400 text-xs sm:text-sm">admin@logiq:~/security_analysis#</span>
               <div className="text-green-400 text-xs sm:text-sm overflow-hidden">
                 <div className="whitespace-nowrap overflow-hidden">
                   {isMobile ? terminalText.slice(0, 30) + (terminalText.length > 30 ? '...' : '') : terminalText}

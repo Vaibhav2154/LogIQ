@@ -49,6 +49,10 @@ class Config:
     MAX_LOG_LENGTH = int(settings.MAX_LOG_LENGTH)
     MAX_RESULTS = int(settings.MAX_RESULTS)
     
+
+    HOST = settings.API_HOST
+    PORT = settings.API_PORT
+
     AWS_REGION = settings.AWS_REGION
     AWS_ACCESS_KEY_ID = settings.AWS_ACCESS_KEY_ID
     AWS_SECRET_ACCESS_KEY = settings.AWS_SECRET_ACCESS_KEY
