@@ -13,7 +13,6 @@ const LandingPage = () => {
   const [hoveredButton, setHoveredButton] = useState<'login' | 'signup' | 'dashboard' | null>(null);
   const [terminalText, setTerminalText] = useState('');
   const [showCursor, setShowCursor] = useState(true);
-  const [loadSpeed, setLoadSpeed] = useState(0);
 
   const fullTerminalText = '> Initializing LOGIQ Systems...';
 
@@ -41,27 +40,6 @@ const LandingPage = () => {
       clearInterval(cursorInterval);
     };
   }, []);
-
-  useEffect(()=>{
-    const handleLoad = () => {
-      const timing = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming;
-      if (timing) {
-        const loadTime = (timing.loadEventEnd - timing.startTime) / 1000;
-        setLoadSpeed(Number(loadTime.toFixed(2)));
-      }
-      else{
-        const time = performance.now() /1000;
-        setLoadSpeed(Number(time.toFixed(2)));
-      }
-    }
-
-    if(document.readyState == 'complete' ) handleLoad();
-    else{
-       window.addEventListener("load", handleLoad);
-    }
-
-    return () => window.removeEventListener("load", handleLoad);
-  }, [])
 
   return (
     <div>
@@ -193,7 +171,7 @@ const LandingPage = () => {
           {/* Terminal Status Pills */}
           <div className={`flex flex-wrap justify-center gap-4 mt-6 max-w-4xl mx-auto transform transition-all duration-1000 delay-700 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
             <div className="px-4 py-2 bg-black/80 border border-green-500/50 font-mono text-green-400 text-sm hover:border-cyan-400 hover:text-cyan-400 transition-all duration-300 cursor-default">
-              [SPEED: {loadSpeed}s]
+              [SPEED: 99.9%]
             </div>
             <div className="px-4 py-2 bg-black/80 border border-green-500/50 font-mono text-green-400 text-sm hover:border-yellow-400 hover:text-yellow-400 transition-all duration-300 cursor-default">
               [SECURITY: MAX]
