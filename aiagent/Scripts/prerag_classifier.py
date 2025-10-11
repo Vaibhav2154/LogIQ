@@ -28,9 +28,9 @@ class PreRAGClassifier:
             self.redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
             self.redis_client.ping()  # Test connection
             self.cache_enabled = True
-            print(f"✅ Redis cache connected: {redis_host}:{redis_port}")
+            print(f"[OK] Redis cache connected: {redis_host}:{redis_port}")
         except Exception as e:
-            print(f"⚠️  Redis cache disabled: {e}")
+            print(f"[WARNING] Redis cache disabled: {e}")
             self.redis_client = None
             self.cache_enabled = False
         
@@ -67,12 +67,12 @@ class PreRAGClassifier:
             self.vectorizer = model_data['vectorizer']
             self.threshold = model_data.get('optimal_threshold', 0.5)
             
-            print(f"✅ Model loaded: {Path(model_path).name}")
-            print(f"🎯 Threshold: {self.threshold:.3f}")
+            print(f"[OK] Model loaded: {Path(model_path).name}")
+            print(f"[THRESHOLD] Threshold: {self.threshold:.3f}")
             
         except Exception as e:
-            print(f"❌ Error loading model: {e}")
-            print("🔄 Falling back to rule-based classification")
+            print(f"[ERROR] Error loading model: {e}")
+            print("[FALLBACK] Falling back to rule-based classification")
             self.model = None
     
     def _get_cache_key(self, log_text: str) -> str:
@@ -248,11 +248,11 @@ class PreRAGClassifier:
                 keys = self.redis_client.keys(f"{self.cache_prefix}*")
                 if keys:
                     self.redis_client.delete(*keys)
-                    print(f"🗑️  Cleared {len(keys)} cache entries")
+                    print(f"[CLEARED] Cleared {len(keys)} cache entries")
                 else:
-                    print("🗑️  Cache already empty")
+                    print("[EMPTY] Cache already empty")
             except Exception as e:
-                print(f"❌ Error clearing cache: {e}")
+                print(f"[ERROR] Error clearing cache: {e}")
 
 def demo_prerag_classifier():
     """Demonstrate the Pre-RAG classifier"""

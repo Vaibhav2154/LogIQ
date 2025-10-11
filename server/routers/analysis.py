@@ -129,6 +129,7 @@ async def analyze_logs(request: LogAnalysisRequest, current_user: dict = Depends
             detail=f"Internal server error: {str(e)}"
         )
 
+
 @router.post("/search-techniques")
 async def search_techniques(query: str, max_results: int = 5) -> Dict[str, Any]:
     """

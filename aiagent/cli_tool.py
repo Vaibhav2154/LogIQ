@@ -63,6 +63,7 @@ rich.traceback.install()
 from ai_agent import AIAgent
 from dynamic_log_extractor import DynamicLogExtractor
 from mongodb_service import mongodb_service
+from Scripts.prerag_classifier import PreRAGClassifier
 
 # Initialize Rich Console
 console = Console()
@@ -77,12 +78,9 @@ LOGS_CACHE = DEFAULT_CONFIG_DIR / "logs_cache"
 def print_banner():
     """Display LogIQ CLI banner."""
     banner_text = """
- _     ____  _____ _  ____ 
-╱ ╲   ╱  _ ╲╱  __╱╱ ╲╱  _ ╲
-│ │   │ ╱ ╲││ │  _│ ││ ╱ ╲│
-│ │_╱╲│ ╲_╱││ │_╱╱│ ││ ╲_╲│
-╲____╱╲____╱╲____╲╲_╱╲____╲
-                           
+    LogIQ CLI Tool
+    ==============
+    Automated Log Analysis & Threat Detection
     """
     brand_color = "#C15F3C"
     console.print(Panel(
@@ -95,19 +93,19 @@ def print_banner():
 
 def success_message(message: str):
     """Display success message."""
-    console.print(f"[bold green]✓[/bold green] {message}")
+    console.print(f"[bold green][OK][/bold green] {message}")
 
 def error_message(message: str):
     """Display error message."""
-    console.print(f"[bold red]✗[/bold red] {message}")
+    console.print(f"[bold red][ERROR][/bold red] {message}")
 
 def warning_message(message: str):
     """Display warning message."""
-    console.print(f"[bold yellow]⚠[/bold yellow] {message}")
+    console.print(f"[bold yellow][WARN][/bold yellow] {message}")
 
 def info_message(message: str):
     """Display info message."""
-    console.print(f"[bold blue]ℹ[/bold blue] {message}")
+    console.print(f"[bold blue][INFO][/bold blue] {message}")
 
 def section_header(title: str, icon: str = "🔍"):
     """Display section header."""
@@ -152,6 +150,10 @@ class LogIQCLI:
         # Initialize AI Agent
         self.ai_agent = None
         
+        # Initialize Pre-RAG Classifier for log filtering
+        self.prerag_classifier = None
+        self._initialize_prerag_classifier()
+        
         # Ensure config directory exists
         self.config_dir.mkdir(exist_ok=True)
         self.logs_cache.mkdir(exist_ok=True)
@@ -161,6 +163,16 @@ class LogIQCLI:
         
         # Try to load stored credentials automatically
         self._auto_load_credentials()
+    
+    def _initialize_prerag_classifier(self):
+        """Initialize the Pre-RAG classifier for log filtering."""
+        try:
+            self.prerag_classifier = PreRAGClassifier()
+            info_message("Pre-RAG classifier initialized successfully")
+        except Exception as e:
+            warning_message(f"Pre-RAG classifier initialization failed: {e}")
+            warning_message("Will use rule-based filtering as fallback")
+            self.prerag_classifier = None
         
         # Initialize AI agent after config is loaded
         if self.config.get('ai_agent_enabled', True):
@@ -184,6 +196,81 @@ class LogIQCLI:
             self.logger.warning(f"Dynamic log extractor initialization failed: {e}")
             self.dynamic_extractor = None
             self.log_extractor = None
+    
+    def filter_logs_with_classifier(self, log_content: str, max_size: int = 40000) -> str:
+        """
+        Filter logs using Pre-RAG classifier to keep only threat-relevant logs.
+        
+        Args:
+            log_content: Full log content to filter
+            max_size: Maximum size for filtered logs (default 45KB to leave room for processing)
+            
+        Returns:
+            Filtered log content containing only threat-relevant logs
+        """
+        if not self.prerag_classifier:
+            warning_message("Pre-RAG classifier not available, truncating logs instead")
+            return log_content[:max_size]
+        
+        try:
+            info_message("Filtering logs with Pre-RAG classifier...")
+            
+            # Split logs into individual lines
+            log_lines = log_content.split('\n')
+            threat_logs = []
+            filtered_count = 0
+            
+            # Process logs in batches for better performance
+            batch_size = 100
+            for i in range(0, len(log_lines), batch_size):
+                batch = log_lines[i:i + batch_size]
+                
+                # Classify batch
+                classifications = self.prerag_classifier.classify_batch(batch)
+                
+                # Keep only threat logs (classification = 1)
+                for log_line, classification in zip(batch, classifications):
+                    if classification == 1:  # Send to RAG (threat detected)
+                        threat_logs.append(log_line)
+                    else:
+                        filtered_count += 1
+                
+                # Check if we've reached the size limit
+                current_size = len('\n'.join(threat_logs))
+                if current_size > max_size:
+                    # Truncate to fit within limit
+                    threat_logs = threat_logs[:len(threat_logs) - 20]  # Remove last 20 lines
+                    break
+            
+            filtered_content = '\n'.join(threat_logs)
+            
+            # Final size check - ensure we're under the limit
+            if len(filtered_content) > max_size:
+                # If still too large, truncate to fit
+                lines = filtered_content.split('\n')
+                truncated_content = ''
+                for line in lines:
+                    if len(truncated_content + line + '\n') > max_size:
+                        break
+                    truncated_content += line + '\n'
+                filtered_content = truncated_content.rstrip('\n')
+            
+            # Get classifier statistics
+            stats = self.prerag_classifier.get_stats()
+            
+            info_message(f"Filtering Results:")
+            info_message(f"   Original logs: {len(log_lines):,} lines")
+            info_message(f"   Threat logs: {len(threat_logs):,} lines")
+            info_message(f"   Filtered out: {filtered_count:,} lines")
+            info_message(f"   Cache hit rate: {stats['cache_hit_rate']:.1%}")
+            info_message(f"   Final size: {len(filtered_content):,} characters")
+            
+            return filtered_content
+            
+        except Exception as e:
+            error_message(f"Error in log filtering: {e}")
+            # Fallback: truncate to max size
+            return log_content[:max_size]
     
     def _setup_logging(self) -> logging.Logger:
         """Setup logging configuration."""
@@ -260,6 +347,7 @@ class LogIQCLI:
             self.encryption_key = self._generate_encryption_key(password)
             credentials = {
                 'username': username,
+                'password': password,  # Store password for token refresh
                 'token': token,
                 'timestamp': datetime.now(timezone.utc).isoformat()
             }
@@ -339,15 +427,15 @@ class LogIQCLI:
             decrypted_creds = self._decrypt_data(self._stored_encrypted_credentials, self.encryption_key)
             credentials = json.loads(decrypted_creds)
             
-            # Check if token is still valid (24 hours)
+            # Check if token is still valid (30 minutes to match server expiration)
             token_time = datetime.fromisoformat(credentials['timestamp'])
             # Make sure both datetimes are timezone-aware for comparison
             if token_time.tzinfo is None:
                 token_time = token_time.replace(tzinfo=timezone.utc)
             
             current_time = datetime.now(timezone.utc)
-            if current_time - token_time > timedelta(hours=24):
-                self.logger.warning("Stored token has expired")
+            if current_time - token_time > timedelta(minutes=30):
+                self.logger.warning("Stored token has expired (30 minutes)")
                 return False
             
             self.session_token = credentials['token']
@@ -473,6 +561,90 @@ class LogIQCLI:
             'Content-Type': 'application/json'
         }
     
+    async def _refresh_token_automatically(self) -> bool:
+        """Automatically refresh the authentication token by re-authenticating with server."""
+        try:
+            if hasattr(self, '_stored_encrypted_credentials') and self.encryption_key:
+                # Decrypt stored credentials to get username and password
+                decrypted_creds = self._decrypt_data(self._stored_encrypted_credentials, self.encryption_key)
+                credentials = json.loads(decrypted_creds)
+                
+                # Check if password is available for token refresh
+                stored_password = credentials.get('password')
+                if not stored_password:
+                    self.logger.warning("Password not stored in credentials - cannot refresh token automatically")
+                    self.logger.info("Please re-authenticate to enable automatic token refresh")
+                    return False
+                
+                # Re-authenticate with the server to get a fresh token
+                api_url = self.config.get('api_url', 'http://localhost:8000')
+                login_data = {
+                    'username': credentials.get('username'),
+                    'password': stored_password
+                }
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        f"{api_url}/login",
+                        json=login_data,
+                        headers={'Content-Type': 'application/json'}
+                    ) as response:
+                        if response.status == 200:
+                            token_response = await response.json()
+                            new_token = token_response['access_token']
+                            
+                            # Update stored credentials with new token and timestamp
+                            credentials['token'] = new_token
+                            credentials['timestamp'] = datetime.now(timezone.utc).isoformat()
+                            
+                            # Re-encrypt and save the updated credentials
+                            updated_creds = json.dumps(credentials)
+                            encrypted_creds = self._encrypt_data(updated_creds, self.encryption_key)
+                            
+                            # Save back to file
+                            with open(self.credentials_file, 'wb') as f:
+                                f.write(encrypted_creds)
+                            
+                            # Update current session token
+                            self.session_token = new_token
+                            self.logger.info("Successfully refreshed authentication token from server")
+                            return True
+                        else:
+                            error_text = await response.text()
+                            self.logger.error(f"Failed to refresh token from server: {response.status} - {error_text}")
+                            return False
+            else:
+                self.logger.warning("No stored credentials available for automatic token refresh")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error in automatic token refresh: {e}")
+            return False
+    
+    def enable_automated_monitoring(self, password: str) -> bool:
+        """Enable fully automated monitoring by storing the password securely."""
+        try:
+            # Store the password hash for automated use
+            import hashlib
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            
+            # Update config to enable automated monitoring
+            if 'automated_monitoring' not in self.config:
+                self.config['automated_monitoring'] = {}
+            
+            self.config['automated_monitoring']['enabled'] = True
+            self.config['automated_monitoring']['password_hash'] = password_hash
+            self.config['automated_monitoring']['enabled_at'] = datetime.now(timezone.utc).isoformat()
+            
+            # Save the updated config
+            self._save_config()
+            
+            self.logger.info("Automated monitoring enabled successfully")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to enable automated monitoring: {e}")
+            return False
+    
     async def send_logs(self, log_content: str, enhance_with_ai: bool = True) -> Optional[Dict[str, Any]]:
         """
         Send logs to the LogIQ analysis endpoint.
@@ -492,6 +664,11 @@ class LogIQCLI:
         
         try:
             headers = self._get_auth_headers()
+            
+            # Filter logs using Pre-RAG classifier if content is too large
+            if len(log_content) > 40000:  # Leave some buffer below 50KB limit
+                info_message(f"Log content too large ({len(log_content):,} chars), filtering with Pre-RAG classifier...")
+                log_content = self.filter_logs_with_classifier(log_content, max_size=45000)
             
             request_data = {
                 'logs': log_content,
@@ -530,6 +707,35 @@ class LogIQCLI:
                         else:
                             error_detail = await response.text()
                             self.logger.error(f"Analysis failed: {response.status} - {error_detail}")
+                            
+                            # Handle 401 Unauthorized - token expired
+                            if response.status == 401:
+                                self.logger.warning("Authentication token expired, attempting automatic refresh...")
+                                
+                                # Try automatic token refresh
+                                if await self._refresh_token_automatically():
+                                    self.logger.info("Retrying request with refreshed token...")
+                                    # Retry the request with new token
+                                    headers = self._get_auth_headers()
+                                    async with session.post(
+                                        f"{api_url}/api/v1/analyze", 
+                                        json=request_data, 
+                                        headers=headers
+                                    ) as retry_response:
+                                        if retry_response.status == 200:
+                                            result = await retry_response.json()
+                                            progress.update(task, advance=30, completed=100)
+                                            self.logger.info("Analysis completed successfully after automatic token refresh")
+                                            await self._cache_analysis_result(log_content, result)
+                                            return result
+                                        else:
+                                            retry_error = await retry_response.text()
+                                            self.logger.error(f"Retry failed: {retry_response.status} - {retry_error}")
+                                else:
+                                    self.logger.error("Automatic token refresh failed - credentials may be invalid")
+                                    # For automated monitoring, we should continue trying rather than failing completely
+                                    warning_message("Authentication failed, will retry in next monitoring cycle")
+                            
                             return None
                             
         except Exception as e:
@@ -628,10 +834,10 @@ class LogIQCLI:
             async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
                 log_content = await f.read()
             
-            # Limit log size to 50KB as per API constraints
-            if len(log_content) > 50000:
-                warning_message("Log file too large, truncating to 50KB")
-                log_content = log_content[:50000]
+            # Filter logs using Pre-RAG classifier if content is too large
+            if len(log_content) > 40000:  # Leave some buffer below 50KB limit
+                info_message(f"📝 Log file too large ({len(log_content):,} chars), filtering with Pre-RAG classifier...")
+                log_content = self.filter_logs_with_classifier(log_content, max_size=45000)
             
             # Use AI agent for enhanced analysis if available and enabled
             if use_ai_agent and self.ai_agent:
@@ -1755,8 +1961,7 @@ class LogIQCLI:
                     result['source_type'] = 'dynamic_extraction'
                     result['extraction_sources'] = self.dynamic_extractor.get_available_sources()
                 
-                # Store in MongoDB via API
-                await self._store_analysis_result(result, log_content, session_id, log_file_path)
+                # Note: Storage is already handled by send_logs() method, no need for duplicate storage
                 return result
             
             return None
@@ -1931,6 +2136,7 @@ def main():
     monitor_parser.add_argument('--schedule', action='store_true', help='Start scheduled analysis')
     monitor_parser.add_argument('--sources', nargs='*', help='Specific sources for dynamic monitoring')
     monitor_parser.add_argument('--interval', type=int, help='Override configured monitoring interval')
+    monitor_parser.add_argument('--enable-auto', action='store_true', help='Enable fully automated monitoring (no password prompts)')
     
     # Analysis command
     analyze_parser = subparsers.add_parser('analyze', help='Analyze specific log file')
@@ -1938,6 +2144,15 @@ def main():
     analyze_parser.add_argument('--enhanced', action='store_true', help='Enable enhanced AI analysis')
     analyze_parser.add_argument('--output', help='Output file for results')
     analyze_parser.add_argument('--ai-agent', action='store_true', default=True, help='Use AI agent for analysis')
+    
+    # Pre-RAG Classifier commands
+    classifier_parser = subparsers.add_parser('classifier', help='Pre-RAG classifier commands')
+    classifier_subparsers = classifier_parser.add_subparsers(dest='classifier_command')
+    
+    test_parser = classifier_subparsers.add_parser('test', help='Test classifier on log file')
+    test_parser.add_argument('--file', required=True, help='Log file to test')
+    test_parser.add_argument('--output', help='Output file for filtered logs')
+    test_parser.add_argument('--stats', action='store_true', help='Show detailed statistics')
     
     # AI Agent commands
     agent_parser = subparsers.add_parser('agent', help='AI Agent management commands')
@@ -2185,13 +2400,50 @@ def main():
     
     elif args.command == 'monitor':
         if args.dynamic:
-            # Check authentication
-            if not cli.session_token:
-                password = getpass.getpass("🔑 Password to decrypt stored credentials: ")
-                credentials = cli._load_credentials(password)
-                if not credentials:
-                    error_message("No valid credentials found. Please login first.")
+            # Handle automated monitoring setup
+            if args.enable_auto:
+                if not cli.session_token:
+                    password = getpass.getpass("🔑 Enter password to enable automated monitoring: ")
+                    credentials = cli._load_credentials(password)
+                    if not credentials:
+                        error_message("No valid credentials found. Please login first.")
+                        sys.exit(1)
+                
+                if cli.enable_automated_monitoring(password):
+                    success_message("Automated monitoring enabled! Future monitoring will run without password prompts.")
+                    console.print("[dim]Note: Set LOGIQ_AUTO_PASSWORD environment variable for full automation[/dim]")
+                else:
+                    error_message("Failed to enable automated monitoring")
                     sys.exit(1)
+                return
+            
+            # Check authentication - try automatic loading first
+            if not cli.session_token:
+                # Check if automated monitoring is enabled
+                automated_enabled = cli.config.get('automated_monitoring', {}).get('enabled', False)
+                
+                if automated_enabled:
+                    # Try to load credentials automatically from environment or config
+                    import os
+                    auto_password = os.getenv('LOGIQ_AUTO_PASSWORD')
+                    if auto_password:
+                        cli.encryption_key = cli._generate_encryption_key(auto_password)
+                        if cli._load_stored_token():
+                            success_message("Automatically loaded credentials for monitoring")
+                        else:
+                            error_message("Failed to load stored credentials automatically")
+                            sys.exit(1)
+                    else:
+                        error_message("Automated monitoring enabled but LOGIQ_AUTO_PASSWORD not set")
+                        console.print("[dim]Set environment variable: export LOGIQ_AUTO_PASSWORD='your_password'[/dim]")
+                        sys.exit(1)
+                else:
+                    # Fall back to manual password prompt
+                    password = getpass.getpass("🔑 Password to decrypt stored credentials: ")
+                    credentials = cli._load_credentials(password)
+                    if not credentials:
+                        error_message("No valid credentials found. Please login first.")
+                        sys.exit(1)
             
             section_header("Dynamic System Log Monitoring", "🚀")
             console.print("[dim]📊 Logs will be extracted from system sources every 5 minutes[/dim]")
@@ -2300,6 +2552,51 @@ def main():
                 console.print(syntax)
         else:
             error_message("Analysis failed!")
+    
+    elif args.command == 'classifier':
+        if args.classifier_command == 'test':
+            # Test the Pre-RAG classifier on a log file
+            if not os.path.exists(args.file):
+                error_message(f"Log file not found: {args.file}")
+                sys.exit(1)
+            
+            try:
+                with open(args.file, 'r', encoding='utf-8') as f:
+                    log_content = f.read()
+                
+                info_message(f"🧪 Testing Pre-RAG classifier on {args.file}")
+                info_message(f"📊 Original file size: {len(log_content):,} characters")
+                
+                # Test the classifier
+                filtered_content = cli.filter_logs_with_classifier(log_content, max_size=45000)
+                
+                # Show results
+                filtered_lines = filtered_content.split('\n')
+                original_lines = log_content.split('\n')
+                
+                console.print(f"\n[bold green]✅ Classification Results:[/bold green]")
+                console.print(f"   Original logs: {len(original_lines):,} lines")
+                console.print(f"   Threat logs: {len(filtered_lines):,} lines")
+                console.print(f"   Filtered out: {len(original_lines) - len(filtered_lines):,} lines")
+                console.print(f"   Size reduction: {(1 - len(filtered_content)/len(log_content))*100:.1f}%")
+                
+                # Show classifier statistics if requested
+                if args.stats and cli.prerag_classifier:
+                    stats = cli.prerag_classifier.get_stats()
+                    console.print(f"\n[bold blue]📈 Classifier Statistics:[/bold blue]")
+                    console.print(f"   Total processed: {stats['total_processed']:,}")
+                    console.print(f"   Cache hits: {stats['cache_hits']:,} ({stats['cache_hit_rate']:.1%})")
+                    console.print(f"   Threats detected: {stats['threats_detected']:,} ({stats['threat_rate']:.1%})")
+                    console.print(f"   Logs filtered: {stats['logs_filtered']:,} ({stats['filter_rate']:.1%})")
+                
+                # Save filtered logs if output file specified
+                if args.output:
+                    with open(args.output, 'w', encoding='utf-8') as f:
+                        f.write(filtered_content)
+                    success_message(f"Filtered logs saved to: {args.output}")
+                
+            except Exception as e:
+                error_message(f"Error testing classifier: {e}")
     
     elif args.command == 'agent':
         if args.agent_command == 'status':

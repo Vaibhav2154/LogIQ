@@ -10,7 +10,7 @@ class Settings(BaseSettings):
   MONGO_URL: str
   SECRET_KEY: str
   ALGORITHM: str = "HS256"
-  ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+  ACCESS_TOKEN_EXPIRE_MINUTES: int = 7*24*60
   
   # ForensIQ specific settings
   GEMINI_API_KEY: str
