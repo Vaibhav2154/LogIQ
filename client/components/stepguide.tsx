@@ -22,8 +22,14 @@ const StepGuide: React.FC = () => {
   const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') return;
+
+    setIsClient(true);
+    
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
@@ -41,90 +47,96 @@ const StepGuide: React.FC = () => {
   const steps: Step[] = [
   {
     id: 1,
-    title: 'START_SERVER.SYS',
-    shortTitle: 'START_SERVER',
-  description: 'Start your LogIQ FastAPI server',
-  shortDescription: 'Run LogIQ server',
+    title: 'INSTALL_DEPENDENCIES.SYS',
+    shortTitle: 'INSTALL_DEPS',
+    description: 'Install Python dependencies and verify CLI tool setup',
+    shortDescription: 'Install dependencies',
     commands: [
-      'cd d:\\forensiq\\server',
-      'python main.py'
+      'cd aiagent',
+      'pip install -r cli_requirements.txt',
+      'python cli_tool.py --help'
     ],
-    example: `PS D:\\forensiq\\server> python main.py
-INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)`,
+    example: `$ pip install -r cli_requirements.txt
+Successfully installed aiohttp-3.8.0 cryptography-41.0.0...
+$ python cli_tool.py --help
+LogIQ CLI Tool for Automated Log Analysis
+Usage: python cli_tool.py [command] [options]`,
     tips: [
-      'Ensure MongoDB is already running',
-      'Check firewall allows access on port 8000',
-      'Use CTRL+C to stop the server'
+      'Ensure Python 3.7+ is installed',
+      'Use virtual environment for clean installation',
+      'Verify all dependencies are installed correctly'
     ],
     status: currentStep >= 1 ? 'completed' : currentStep === 1 ? 'current' : 'pending',
-    icon: <Power className="w-5 h-5" />,
+    icon: <Download className="w-5 h-5" />,
     color: 'red'
   },
   {
     id: 2,
+    title: 'START_SERVER.SYS',
+    shortTitle: 'START_SERVER',
+    description: 'Start your LogIQ FastAPI server',
+    shortDescription: 'Run LogIQ server',
+    commands: [
+      'cd server',
+      'python main.py'
+    ],
+    example: `$ python main.py
+INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
+INFO:     MongoDB connected successfully`,
+    tips: [
+      'Ensure MongoDB is running and accessible',
+      'Check firewall allows access on port 8000',
+      'Server must be running before using CLI tool'
+    ],
+    status: currentStep >= 2 ? 'completed' : currentStep === 2 ? 'current' : 'pending',
+    icon: <Power className="w-5 h-5" />,
+    color: 'blue'
+  },
+  {
+    id: 3,
     title: 'AUTHENTICATE.USER',
     shortTitle: 'AUTHENTICATE',
     description: 'Login or register using the CLI tool',
     shortDescription: 'Login/Register via CLI',
     commands: [
-  'cd d:\\logiq\\aiagent',
-      'python cli_tool.py auth login --username vaibhav',
-      'python cli_tool.py auth register --username vaibhav --email vaibhav@example.com'
+      'python cli_tool.py auth register --username <username> --email <email>',
+      'python cli_tool.py auth login --username <username>',
+      'python cli_tool.py auth profile'
     ],
-    example: `[AUTH] Login successful for user vaibhav
-[AUTH] Token stored locally`,
+    example: `$ python cli_tool.py auth login --username security_analyst
+Password: ********
+✅ Authentication successful!
+✅ Token stored securely`,
     tips: [
-      'Use your registered username',
-      'Clear saved credentials if login fails',
-      'Run with --api-url if server not on localhost'
-    ],
-    status: currentStep >= 2 ? 'completed' : currentStep === 2 ? 'current' : 'pending',
-    icon: <User className="w-5 h-5" />,
-    color: 'blue'
-  },
-  {
-    id: 3,
-    title: 'LIST_SOURCES.LOG',
-    shortTitle: 'LIST_SOURCES',
-    description: 'Check available dynamic log sources on your system',
-    shortDescription: 'View log sources',
-    commands: [
-      'python cli_tool.py profile setup-dynamic --list-sources'
-    ],
-    example: `Available Sources:
-- security_events
-- system_events
-- application_events
-- powershell_logs
-- process_monitor
-- network_connections
-- file_system_activity`,
-    tips: [
-      'Some sources require Administrator privileges',
-      'Choose sources based on security requirements',
-      'Avoid enabling too many sources initially'
+      'Register first if you don\'t have an account',
+      'Credentials are encrypted and stored locally',
+      'Use --api-url if server not on localhost:8000'
     ],
     status: currentStep >= 3 ? 'completed' : currentStep === 3 ? 'current' : 'pending',
-    icon: <FileText className="w-5 h-5" />,
+    icon: <User className="w-5 h-5" />,
     color: 'cyan'
   },
   {
     id: 4,
     title: 'SETUP_PROFILE.CFG',
     shortTitle: 'SETUP_PROFILE',
-    description: 'Setup dynamic monitoring profile with sources and interval',
+    description: 'Setup monitoring profile (file-based or dynamic)',
     shortDescription: 'Setup monitoring profile',
     commands: [
-      'python cli_tool.py profile setup-dynamic --sources security_events,system_events,process_monitor --interval 300 --enable-ai-agent --auto-enhance'
+      'python cli_tool.py profile setup-dynamic --list-sources',
+      'python cli_tool.py profile setup-dynamic --sources security_events,system_events --interval 300',
+      'python cli_tool.py profile setup --log-path "C:\\Windows\\System32\\winevt\\Logs\\Security.evtx" --interval 300'
     ],
-    example: `[PROFILE] Dynamic profile created
-Sources: security_events, system_events, process_monitor
-Interval: 300 seconds
-AI Agent: enabled`,
+    example: `$ python cli_tool.py profile setup-dynamic --list-sources
+📋 Available Log Sources:
+  • security_events: Windows Security Events
+  • system_events: Windows System Events
+  • process_monitor: Process monitoring
+✅ Profile configured successfully`,
     tips: [
+      'Choose file-based or dynamic monitoring',
       'Use 300 seconds (5 min) for normal monitoring',
-      'Use 120 seconds (2 min) for high-security monitoring',
-      'Enable AI agent for automatic analysis'
+      'Enable AI agent for enhanced analysis'
     ],
     status: currentStep >= 4 ? 'completed' : currentStep === 4 ? 'current' : 'pending',
     icon: <Settings className="w-5 h-5" />,
@@ -137,16 +149,19 @@ AI Agent: enabled`,
     description: 'Start automated monitoring session',
     shortDescription: 'Begin monitoring',
     commands: [
-      'python cli_tool.py monitor --start-dynamic',
-      'python cli_tool.py monitor --start-dynamic --session-id security_monitoring_1'
+      'python cli_tool.py monitor --start',
+      'python cli_tool.py monitor --dynamic',
+      'python cli_tool.py monitor --schedule'
     ],
-    example: `[MONITOR] Started monitoring session security_monitoring_1
-Interval: 300s
-Log sources: security_events, system_events, process_monitor`,
+    example: `$ python cli_tool.py monitor --dynamic
+🚀 Starting dynamic system log monitoring...
+📊 Logs will be extracted every 5 minutes
+🔄 Data will be automatically sent to LogIQ and stored in MongoDB
+🤖 AI Agent will provide enhanced analysis`,
     tips: [
-      'Use --session-id to track specific sessions',
-      'Keep one terminal running for continuous monitoring',
-      'Results stored automatically in MongoDB'
+      'Use --dynamic for system log extraction',
+      'Use --start for file-based monitoring',
+      'Keep terminal running for continuous monitoring'
     ],
     status: currentStep >= 5 ? 'completed' : currentStep === 5 ? 'current' : 'pending',
     icon: <Play className="w-5 h-5" />,
@@ -156,22 +171,23 @@ Log sources: security_events, system_events, process_monitor`,
     id: 6,
     title: 'VIEW_RESULTS.OUT',
     shortTitle: 'VIEW_RESULTS',
-    description: 'Check monitoring status and recent AI analysis results',
-    shortDescription: 'View results & status',
+    description: 'Check analysis results and monitoring data',
+    shortDescription: 'View results & data',
     commands: [
-      'python cli_tool.py monitor --status',
-      'python cli_tool.py profile status',
-      'python cli_tool.py monitor --show-results --limit 5',
-      'python cli_tool.py monitor --export-results --output monitoring_results.json'
+      'python cli_tool.py data analysis --limit 10',
+      'python cli_tool.py data sessions --limit 5',
+      'python cli_tool.py data stats',
+      'python cli_tool.py agent status'
     ],
-    example: `[RESULTS] Showing last 5 analyses...
-Threat Level: MEDIUM
-Techniques: T1078 (Valid Accounts)
-Recommendations: Monitor failed logins, Review process execution`,
+    example: `$ python cli_tool.py data analysis --limit 5
+📊 Analysis Results (Last 5):
+🔍 Threat Level: MEDIUM
+🎯 MITRE Techniques: T1078 (Valid Accounts), T1059.001 (PowerShell)
+📈 AI Agent: Learning patterns, confidence: 0.85`,
     tips: [
-      'Use --limit N to control number of results shown',
-      'Export results for compliance or offline analysis',
-      'Results also available in MongoDB collections'
+      'Use --limit to control number of results',
+      'Export data with --export option',
+      'Check agent status for learning progress'
     ],
     status: currentStep >= 6 ? 'completed' : currentStep === 6 ? 'current' : 'pending',
     icon: <Eye className="w-5 h-5" />,
@@ -181,24 +197,52 @@ Recommendations: Monitor failed logins, Review process execution`,
     id: 7,
     title: 'CONFIG_AI.CFG',
     shortTitle: 'CONFIG_AI',
-    description: 'Tune AI agent for high-security environments',
+    description: 'Configure AI agent for optimal threat detection',
     shortDescription: 'Configure AI agent',
     commands: [
       'python cli_tool.py agent status',
-      'python cli_tool.py agent configure --learning-threshold 3 --high-threat-interval 60',
-      'python cli_tool.py profile update --interval 120'
+      'python cli_tool.py agent configure --enable --learning-threshold 0.8',
+      'python cli_tool.py agent configure --high-threat-interval 60',
+      'python cli_tool.py agent reset --confirm'
     ],
-    example: `[AI_AGENT] Status: active
-Learning threshold: 3
-High-threat interval: 60 seconds`,
+    example: `$ python cli_tool.py agent status
+🤖 AI Agent Status: ACTIVE
+📚 Learning Threshold: 0.8
+⚡ High-threat Interval: 60 seconds
+📊 Patterns Learned: 15`,
     tips: [
       'Lower thresholds for more aggressive detection',
-      'Shorten intervals for high-risk systems',
-      'Balance security with system performance'
+      'Adjust intervals based on security requirements',
+      'Reset agent to clear learning data if needed'
     ],
     status: currentStep >= 7 ? 'completed' : currentStep === 7 ? 'current' : 'pending',
     icon: <Brain className="w-5 h-5" />,
     color: 'green'
+  },
+  {
+    id: 8,
+    title: 'ANALYZE_LOGS.DAT',
+    shortTitle: 'ANALYZE_LOGS',
+    description: 'Perform on-demand log analysis with AI enhancement',
+    shortDescription: 'Analyze logs on-demand',
+    commands: [
+      'python cli_tool.py analyze --file <log_file> --enhanced',
+      'python cli_tool.py analyze --file <log_file> --ai-agent --output results.json',
+      'python cli_tool.py send --file <log_file>'
+    ],
+    example: `$ python cli_tool.py analyze --file security.log --enhanced --ai-agent
+🔍 Analyzing log file: security.log
+🤖 AI Agent: Processing with enhanced analysis
+📊 Results: 3 MITRE techniques detected
+💾 Results saved to: analysis_results.json`,
+    tips: [
+      'Use --enhanced for AI-powered analysis',
+      'Use --output to save results to file',
+      'Combine with --ai-agent for best results'
+    ],
+    status: currentStep >= 8 ? 'completed' : currentStep === 8 ? 'current' : 'pending',
+    icon: <FileText className="w-5 h-5" />,
+    color: 'cyan'
   }
 ];
 
@@ -215,6 +259,9 @@ High-threat interval: 60 seconds`,
   };
 
   const copyCommand = async (command: string) => {
+    // Only run on client side
+    if (typeof window === 'undefined' || !navigator.clipboard) return;
+    
     try {
       await navigator.clipboard.writeText(command);
       setCopiedCommand(command);
@@ -257,6 +304,17 @@ High-threat interval: 60 seconds`,
     return isActive ? 'bg-gradient-to-b from-green-400 via-cyan-400 to-purple-400' : 'bg-gray-600';
   };
 
+  // Show loading state during hydration
+  if (!isClient) {
+    return (
+      <div className="relative bg-black min-h-screen text-white flex items-center justify-center">
+        <div className="text-green-400 font-mono text-lg">
+          [LOGIQ_CLI.GUIDE] &gt; LOADING...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative bg-black min-h-screen text-white">
       {/* Grid overlay */}
@@ -272,18 +330,19 @@ High-threat interval: 60 seconds`,
       />
 
       <div className="relative container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-4xl">
-        {/* AI Agent Info Panel */}
+        {/* LogIQ CLI Info Panel */}
         <div className="mb-6">
           <div className="bg-cyan-900/80 border border-cyan-400/40 rounded-lg p-4 sm:p-6 shadow-lg">
             <h2 className="text-lg sm:text-xl font-bold text-cyan-300 mb-2 font-mono flex items-center">
               <Settings className="w-5 h-5 mr-2 text-cyan-400" />
-              AI Agent Integration in LogIQ CLI
+              LogIQ CLI Tool - Complete Setup Guide
             </h2>
             <ul className="list-disc pl-5 text-gray-200 text-sm sm:text-base space-y-1">
-              <li>The AI agent is <span className="text-cyan-300 font-bold">automatically initialized</span> and managed by the CLI tool (<span className="text-green-300 font-mono">cli_tool.py</span>). You do <span className="text-cyan-300 font-bold">not</span> interact with it directly.</li>
-              <li>All advanced analysis and agent management is performed via CLI commands: <span className="text-green-300 font-mono">analyze --enhanced</span>, <span className="text-green-300 font-mono">analyze --ai-agent</span>, <span className="text-green-300 font-mono">agent status</span>, <span className="text-green-300 font-mono">agent configure</span>.</li>
-              <li>The agent's state and learning data are stored and handled by the CLI tool in your <span className="text-green-300 font-mono">~/.logiq</span> directory (<span className="text-green-300 font-mono">ai_agent_state.json</span>).</li>
-              <li>For complete documentation, see the <span className="text-green-300 font-mono">CLI_USER_GUIDE.md</span> or use <span className="text-green-300 font-mono">python cli_tool.py --help</span> and <span className="text-green-300 font-mono">python cli_tool.py agent --help</span>.</li>
+              <li><span className="text-cyan-300 font-bold">8-Step Process:</span> From installation to advanced log analysis with AI enhancement</li>
+              <li><span className="text-green-300 font-bold">Dynamic Monitoring:</span> Real-time extraction from Windows Event Logs with MongoDB storage</li>
+              <li><span className="text-yellow-300 font-bold">AI Agent:</span> Intelligent threat detection with adaptive scheduling and pattern learning</li>
+              <li><span className="text-purple-300 font-bold">Data Management:</span> Comprehensive MongoDB data retrieval, export, and analysis capabilities</li>
+              <li>For complete documentation, see <span className="text-green-300 font-mono">CLI_USER_GUIDE.md</span> or use <span className="text-green-300 font-mono">python cli_tool.py --help</span></li>
             </ul>
           </div>
         </div>
@@ -297,7 +356,7 @@ High-threat interval: 60 seconds`,
               &gt; STEP_BY_STEP_EXECUTION_PROTOCOL --MODE=INTERACTIVE
             </div>
             <p className="text-gray-300 mt-4 text-sm sm:text-base">
-              Follow this linked process chain to deploy the LogIQ CLI tool with AI agent integration for automated cyber threat detection.
+              Follow this comprehensive 8-step process to deploy the LogIQ CLI tool with dynamic monitoring, AI-powered threat detection, and MongoDB integration for automated security analysis.
             </p>
           </div>
 
@@ -539,7 +598,7 @@ High-threat interval: 60 seconds`,
         <div className={`mt-8 sm:mt-12 bg-black/80 backdrop-blur-sm border border-green-500/30 rounded-lg p-4 sm:p-6 transform transition-all duration-1000 delay-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'} font-mono`}>
           <div className="flex items-center justify-between">
             <div className="text-green-400 text-sm sm:text-base">
-              [SYSTEM_STATUS] &gt; LOGIQ_CLI_READY_FOR_DEPLOYMENT
+              [SYSTEM_STATUS] &gt; LOGIQ_CLI_READY_FOR_DEPLOYMENT --STEPS=8
             </div>
             <div className="flex items-center space-x-2 text-xs sm:text-sm">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_5px_rgba(34,197,94,1)]" />
@@ -555,6 +614,7 @@ High-threat interval: 60 seconds`,
 │ LINKED_LIST.DAT │
 │ STATUS: ACTIVE  │
 │ NODES: 8        │
+│ STEPS: COMPLETE │
 └─────────────────┘`}
       </div>
 
