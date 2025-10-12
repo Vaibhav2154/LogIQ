@@ -2,9 +2,11 @@
 import Navbar from '@/components/navbar'
 import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import MarkdownRenderer from '@/hooks/MarkDownRenderer'
 
 const DashboardPage = () => {
+  const router = useRouter()
   const [isVisible, setIsVisible] = useState(false)
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null)
   const [terminalText, setTerminalText] = useState('')
@@ -190,6 +192,14 @@ const recentSingleAnalyses  = async(elementId:string)=>{
     setSelectedAnalysis(null)
   }, [])
 
+  const viewInVisualization = useCallback((analysis: any) => {
+    // Replace the current analysis in localStorage with the selected one
+    localStorage.setItem('latestAnalysis', JSON.stringify(analysis));
+    // Close the modal and navigate to visualization
+    closeModal();
+    router.push('/dashboard/visualization');
+  }, [router, closeModal])
+
   useEffect(() => {
   console.log("Updated allSingleAnalysis:", allSingleAnalysis)
 }, [allSingleAnalysis])
@@ -307,11 +317,51 @@ const recentSingleAnalyses  = async(elementId:string)=>{
     return 'medium'
   }, [])
 
-  // Mock navigation function since we don't have Next.js router
+  // Navigation function with proper router integration
   const navigate = useCallback((href: string) => {
-    console.log(`Navigating to: ${href}`)
-    // In a real app, this would use Next.js router
-  }, [])
+    if (href === '/dashboard/visualization') {
+      // For visualization, fetch latest analysis summary and navigate
+      fetchLatestAnalysisSummary();
+    } else {
+      router.push(href);
+    }
+  }, [router])
+
+  const fetchLatestAnalysisSummary = async () => {
+    try {
+      // Try to get the latest analysis from localStorage first
+      const storedAnalysis = localStorage.getItem('latestAnalysis');
+      if (storedAnalysis) {
+        const analysis = JSON.parse(storedAnalysis);
+        // Navigate to visualization which will auto-load from localStorage
+        router.push('/dashboard/visualization');
+        return;
+      }
+
+      // If no stored analysis, try to fetch from API
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/latest`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.analysis) {
+          // Store the latest analysis in localStorage
+          localStorage.setItem('latestAnalysis', JSON.stringify(data.analysis));
+        }
+      }
+      
+      // Navigate to visualization regardless of API response
+      router.push('/dashboard/visualization');
+    } catch (err) {
+      console.error('Error fetching latest analysis:', err);
+      // Navigate anyway, visualization page will handle the error state
+      router.push('/dashboard/visualization');
+    }
+  }
 
   const FeatureCard = React.memo(({ feature, index }: { feature: any, index: number }) => (
     <div 
@@ -690,6 +740,12 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                     className="px-4 py-2 bg-black border-2 border-gray-500 hover:border-gray-400 text-gray-400 hover:text-gray-300 font-medium transition-all duration-300 font-mono text-sm"
                   >
                     [CLOSE]
+                  </button>
+                  <button
+                    onClick={() => viewInVisualization(selectedAnalysis)}
+                    className="px-4 py-2 bg-black border-2 border-blue-500 hover:border-blue-400 text-blue-400 hover:text-blue-300 font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,100,255,0.5)] font-mono text-sm"
+                  >
+                    [VIEW_VISUALIZATION]
                   </button>
                   <button
                     onClick={() => {

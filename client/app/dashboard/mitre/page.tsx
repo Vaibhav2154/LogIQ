@@ -227,7 +227,9 @@ const MitrePage = () => {
         <div className={`mb-6 sm:mb-8 transform transition-all duration-1000 delay-200 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
           <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-cyan-400 break-words">[KILL_CHAIN_FILTER.SYS]</h3>
           <div className="flex flex-wrap gap-2 sm:gap-3">
-            {killChainPhases.map((phase) => (
+            {killChainPhases
+            .filter((phase)=> phase.name != 'EXFILTRATION')
+            .map((phase) => (
               <button
                 key={phase.id}
                 onClick={() => setSelectedPhase(phase.id)}
@@ -237,7 +239,9 @@ const MitrePage = () => {
                     : 'bg-black/50 border-green-500/30 text-green-500 hover:text-green-400 hover:border-green-400'
                 }`}
               >
-                <span className="hidden sm:inline">&gt; {phase.name}</span>
+                {
+                  phase.name === 'EXFILTRATION' ? ' ':<span className="hidden sm:inline">&gt; {phase.name}</span>
+                }
                 <span className="sm:hidden">&gt; {phase.shortName}</span>
               </button>
             ))}

@@ -14,7 +14,7 @@ const Navbar = () => {
     { name: 'DASHBOARD.SYS', href: '/dashboard', icon: '📊', shortName: 'DASH' },
     { name: 'MITRE_ATTACK.DB', href: '/dashboard/mitre', icon: '🛡️', shortName: 'MITRE' },
     { name: 'ANALYSIS.EXE', href: '/dashboard/analysis', icon: '🔍', shortName: 'ANALYZE' },
-    //{ name: 'CLI_GUIDE', href: '/dashboard/cliguide', icon: '🖥️', shortName: 'CLI' }
+    { name: 'CLI_GUIDE', href: '/dashboard/cliguide', icon: '🖥️', shortName: 'CLI' }
   ]
 
   useEffect(() => {
@@ -149,7 +149,7 @@ const Navbar = () => {
           {/* Mobile Menu Footer */}
           <div className='pt-3 mt-3 border-t border-green-500/30'>
             <div className='flex items-center justify-between text-green-400 text-xs'>
-              <span>[FORENSIQ_MOBILE_v2.0]</span>
+              <span>[LOGIQ_MOBILE_v2.0]</span>
               <div className='flex items-center space-x-2'>
                 <span className='animate-pulse'>●</span>
                 <span>[SECURE_CONNECTION]</span>
