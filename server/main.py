@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -142,9 +143,10 @@ async def global_exception_handler(request, exc):
 
 if __name__ == "__main__":
     import uvicorn
+    port = os.getenv("PORT", Config.PORT)
     uvicorn.run(
         "main:app",
         host=Config.HOST,
-        port=Config.PORT,
+        port=port,
         log_level=Config.LOG_LEVEL.lower()
     )
