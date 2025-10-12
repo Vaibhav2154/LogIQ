@@ -5,6 +5,33 @@ All notable changes to the LogIQ CLI Tool will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2025-10-12
+
+### Changed
+
+- Reduced default logging noise during startup; ML fallback diagnostics moved to DEBUG
+- Minor stability improvements in model initialization paths
+
+### Docs
+
+- Updated README to 1.8.0 with quieter logs note
+- Added `RELEASE_NOTES_v1.8.0.md`
+
+## [1.7.0] - 2025-10-12
+
+### Added
+- CLI UX polish and help improvements, clearer messages and exit codes
+- Minor performance improvements in status update paths
+- Documentation refresh for 1.7 including quick commands and screenshots placeholders
+
+### Fixed
+- Addressed intermittent Windows-specific cleanup edge cases
+- Small typos and links in documentation
+
+### Improved
+- More resilient shutdown flow when Ctrl+C/terminal close occurs
+- Streamlined dependency versions, validated against Python 3.12
+
 ## [1.6.0] - 2025-01-12
 
 ### Added

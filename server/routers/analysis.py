@@ -256,6 +256,36 @@ async def get_database_stats() -> Dict[str, Any]:
             detail=f"Failed to get stats: {str(e)}"
         )
 
+@router.get("/history/count")
+async def get_analysis_count(
+    current_user: dict = Depends(get_current_user)
+) -> dict:
+    """
+    Get total number of analyses done by the authenticated user.
+    
+    Args:
+        current_user: Current authenticated user
+        
+    Returns:
+        {
+            "total": int
+        }
+    """
+    try:
+        user_id = current_user["username"]
+        total_count = await analysis_storage_service.get_total_analysis_count(user_id)
+
+        logger.info(f"Total analysis count for user '{user_id}': {total_count}")
+
+        return {"total": total_count}
+
+    except Exception as e:
+        logger.error(f"Error getting total analysis count: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get total analysis count: {str(e)}"
+        )
+
 @router.get("/history", response_model=List[AnalysisHistoryItem])
 async def get_analysis_history(
     limit: int = 10, 

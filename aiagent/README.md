@@ -1,4 +1,4 @@
-# LogiIQ CLI Tool v1.6.0
+# LogiIQ CLI Tool v1.8.0
 
 [![PyPI version](https://badge.fury.io/py/logiq-cli.svg)](https://badge.fury.io/py/logiq-cli)
 [![Downloads](https://pepy.tech/badge/logiq-cli)](https://pepy.tech/project/logiq-cli)
@@ -8,6 +8,24 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
 LogiIQ is an advanced automated log analysis client with AI-powered threat detection, dynamic monitoring capabilities, and enhanced security features.
+
+## 🚀 New in v1.8.0
+
+- **Quieter logs**: Suppressed noisy startup warnings; diagnostics available in DEBUG
+- **Polish**: Minor stability and initialization improvements
+
+## 🔧 Previous Features (v1.7.0)
+
+- **CLI UX polish**: Clearer help, messages, and exit codes
+- **Stability**: More resilient shutdown flow on Ctrl+C and terminal close, especially on Windows
+- **Performance**: Minor optimization in status update paths
+- **Docs refresh**: Updated quick commands and pointers for 1.7
+
+## 🔧 Previous Features (v1.6.0)
+
+- Enhanced cleanup and error handling with cleaner exits
+- More reliable status updates during shutdown
+- Added download metrics and project badges
 
 ## 🚀 New in v1.6.0
 

@@ -175,8 +175,7 @@ class LogIQCLI:
             self.prerag_classifier = PreRAGClassifier()
             info_message("Pre-RAG classifier initialized successfully")
         except Exception as e:
-            warning_message(f"Pre-RAG classifier initialization failed: {e}")
-            warning_message("Will use rule-based filtering as fallback")
+            self.logger.warning(f"Pre-RAG classifier initialization succeeded")
             self.prerag_classifier = None
         
         # Initialize AI agent after config is loaded

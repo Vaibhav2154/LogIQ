@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="logiq-cli",  # Unique PyPI package name; console command remains 'logiq'
-    version="1.6.0",
+    version="1.8.0",
     description="LogiIQ",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
