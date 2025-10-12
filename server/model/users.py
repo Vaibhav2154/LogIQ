@@ -3,6 +3,7 @@ from pydantic import BaseModel, EmailStr, Field
 class UserBase(BaseModel):
     email: EmailStr = Field(...)
     username: str = Field(...)
+    cli_active: bool = Field(default=False)
 
 class UserCreate(UserBase):
     password: str = Field(...)
@@ -14,6 +15,7 @@ class LoginRequest(BaseModel):
 class UserUpdate(BaseModel):
     email: str | None = None
     username: str | None = None
+    cli_active: bool | None = None
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
