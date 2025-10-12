@@ -51,11 +51,22 @@ class PreRAGClassifier:
         """Load the ML model"""
         try:
             if model_path is None:
-                # Find latest model
-                models_dir = Path("models")
-                model_files = list(models_dir.glob("*threat_model*.joblib"))
-                if not model_files:
-                    model_files = list(models_dir.glob("*.joblib"))
+                # Find latest model - check multiple possible locations
+                possible_dirs = [
+                    Path("models"),  # Current directory
+                    Path("Scripts/models"),  # Scripts subdirectory
+                    Path(__file__).parent / "models",  # Same directory as this script
+                    Path(__file__).parent.parent / "Scripts" / "models"  # Scripts/models from aiagent root
+                ]
+                
+                model_files = []
+                for models_dir in possible_dirs:
+                    if models_dir.exists():
+                        model_files = list(models_dir.glob("*threat_model*.joblib"))
+                        if not model_files:
+                            model_files = list(models_dir.glob("*.joblib"))
+                        if model_files:
+                            break
                 
                 if model_files:
                     model_path = max(model_files, key=lambda x: x.stat().st_mtime)
@@ -66,6 +77,18 @@ class PreRAGClassifier:
             self.model = model_data['model']
             self.vectorizer = model_data['vectorizer']
             self.threshold = model_data.get('optimal_threshold', 0.5)
+            
+            # Test model quality - if all predictions are identical, use rule-based fallback
+            test_logs = ['test log 1', 'test log 2', 'test log 3']
+            try:
+                X_test = self.vectorizer.transform(test_logs).toarray()
+                probs = self.model.predict_proba(X_test)[:, 1]
+                if len(set(probs.round(3))) <= 1:  # All probabilities are essentially identical
+                    print(f"[WARNING] Model gives identical predictions ({probs[0]:.3f}), using rule-based fallback")
+                    raise ValueError("Model quality check failed - identical predictions")
+            except Exception as test_error:
+                print(f"[MODEL QUALITY CHECK FAILED] {test_error}")
+                raise test_error
             
             print(f"[OK] Model loaded: {Path(model_path).name}")
             print(f"[THRESHOLD] Threshold: {self.threshold:.3f}")
@@ -142,8 +165,8 @@ class PreRAGClassifier:
             if pattern in log_lower:
                 return 0  # Filter out
         
-        # Default: send uncertain logs to RAG
-        return 1
+        # Default: filter out uncertain logs (be more conservative)
+        return 0
     
     def classify_single(self, log_text: str) -> int:
         """

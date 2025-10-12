@@ -59,11 +59,10 @@ import rich.traceback
 # Install rich traceback for better error display
 rich.traceback.install()
 
-# Import AI Agent and Dynamic Log Extractor
-from ai_agent import AIAgent
-from dynamic_log_extractor import DynamicLogExtractor
-from mongodb_service import mongodb_service
-from Scripts.prerag_classifier import PreRAGClassifier
+# Import AI Agent and Dynamic Log Extractor (package-relative imports)
+from .ai_agent import AIAgent
+from .dynamic_log_extractor import DynamicLogExtractor
+from .Scripts.prerag_classifier import PreRAGClassifier
 
 # Initialize Rich Console
 console = Console()
@@ -77,10 +76,12 @@ LOGS_CACHE = DEFAULT_CONFIG_DIR / "logs_cache"
 
 def print_banner():
     """Display LogIQ CLI banner."""
-    banner_text = """
-    LogIQ CLI Tool
-    ==============
-    Automated Log Analysis & Threat Detection
+    banner_text = """                  
+ __    _____ _____ _____ _____ 
+|  |  |     |   __|     |     |
+|  |__|  |  |  |  |-   -|  |  |
+|_____|_____|_____|_____|__  _|
+                           |__|
     """
     brand_color = "#C15F3C"
     console.print(Panel(
@@ -163,6 +164,10 @@ class LogIQCLI:
         
         # Try to load stored credentials automatically
         self._auto_load_credentials()
+        
+        # Update CLI status if user is authenticated
+        if self.session_token and self.config.get('username'):
+            asyncio.create_task(self._update_cli_status(True))
     
     def _initialize_prerag_classifier(self):
         """Initialize the Pre-RAG classifier for log filtering."""
@@ -179,12 +184,17 @@ class LogIQCLI:
             self.ai_agent = AIAgent(self)
             self.logger.info("AI Agent initialized")
         
-        # Initialize MongoDB service
+        # Initialize MongoDB service (lazy import to avoid import-time env errors)
         try:
-            self.mongodb_service = mongodb_service
-            self.logger.info("MongoDB service initialized")
+            from . import mongodb_service as _mongodb_module
+            # Prefer global instance if defined by module
+            self.mongodb_service = getattr(_mongodb_module, 'mongodb_service', None)
+            if self.mongodb_service:
+                self.logger.info("MongoDB service initialized")
+            else:
+                self.logger.warning("MongoDB service not configured (MONGO_URL missing or init failed)")
         except Exception as e:
-            self.logger.warning(f"MongoDB service initialization failed: {e}")
+            self.logger.warning(f"MongoDB service import failed: {e}")
             self.mongodb_service = None
         
         # Initialize dynamic log extractor
@@ -196,6 +206,35 @@ class LogIQCLI:
             self.logger.warning(f"Dynamic log extractor initialization failed: {e}")
             self.dynamic_extractor = None
             self.log_extractor = None
+
+    async def _db_connect_if_available(self) -> bool:
+        """Attempt to connect to MongoDB if service is available. Returns True on success or if not configured."""
+        svc = self.mongodb_service
+        if not svc:
+            return False
+        try:
+            if hasattr(svc, 'connect_async'):
+                return await svc.connect_async()
+            if hasattr(svc, 'connect') and asyncio.iscoroutinefunction(svc.connect):
+                return await svc.connect()
+            if hasattr(svc, 'connect'):
+                return bool(svc.connect())
+        except Exception as e:
+            self.logger.warning(f"MongoDB connect failed: {e}")
+        return False
+
+    async def _db_disconnect_if_available(self) -> None:
+        """Disconnect MongoDB if service is available."""
+        svc = self.mongodb_service
+        if not svc:
+            return
+        try:
+            if hasattr(svc, 'disconnect') and asyncio.iscoroutinefunction(svc.disconnect):
+                await svc.disconnect()
+            elif hasattr(svc, 'close'):
+                svc.close()
+        except Exception as e:
+            self.logger.debug(f"MongoDB disconnect error: {e}")
     
     def filter_logs_with_classifier(self, log_content: str, max_size: int = 40000) -> str:
         """
@@ -470,6 +509,9 @@ class LogIQCLI:
                                 self.config['username'] = username
                                 self._save_config()
                                 self.logger.info(f"Authentication successful for user: {username}")
+                                
+                                # Update cli_active status to True
+                                await self._update_cli_status(True)
                                 return True
                         else:
                             error_detail = await response.text()
@@ -478,6 +520,35 @@ class LogIQCLI:
             except Exception as e:
                 self.logger.error(f"Authentication error: {e}")
                 return False
+    
+    async def _update_cli_status(self, is_active: bool) -> bool:
+        """Update the user's CLI active status on the server."""
+        if not self.session_token or not self.config.get('api_url'):
+            return False
+        
+        try:
+            api_url = self.config.get('api_url', 'http://localhost:8000')
+            headers = {'Authorization': f'Bearer {self.session_token}'}
+            update_data = {'cli_active': is_active}
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.put(f"{api_url}/users/me", json=update_data, headers=headers) as response:
+                    if response.status == 200:
+                        self.logger.info(f"CLI status updated to {'active' if is_active else 'inactive'}")
+                        return True
+                    else:
+                        error_detail = await response.text()
+                        self.logger.warning(f"Failed to update CLI status: {error_detail}")
+                        return False
+        except Exception as e:
+            self.logger.warning(f"Error updating CLI status: {e}")
+            return False
+    
+    async def cleanup_cli_status(self) -> None:
+        """Set CLI status to False when CLI tool exits."""
+        if self.session_token and self.config.get('username'):
+            await self._update_cli_status(False)
+            self.logger.info("CLI status set to inactive on exit")
     
     async def register_user(self, username: str, email: str, password: str) -> bool:
         """
@@ -1078,7 +1149,7 @@ class LogIQCLI:
         if self.mongodb_service:
             try:
                 with console.status("[bold blue]Connecting to MongoDB...", spinner="dots"):
-                    mongodb_connected = await self.mongodb_service.connect_async()
+                    mongodb_connected = await self._db_connect_if_available()
                     if not mongodb_connected:
                         warning_message("Failed to connect to MongoDB. Data will not be stored.")
             except Exception as e:
@@ -1191,7 +1262,7 @@ class LogIQCLI:
         finally:
             # Close MongoDB connection if open
             if self.mongodb_service:
-                await self.mongodb_service.close_async()
+                await self._db_disconnect_if_available()
         panel = Panel.fit(
             f"[bold green]Dynamic Monitoring Started[/bold green]\n\n"
             f"[cyan]Session ID:[/cyan] {session_id or 'N/A'}\n"
@@ -1327,13 +1398,16 @@ class LogIQCLI:
         """
         try:
             with console.status("[bold blue]Setting up monitoring profile...", spinner="dots"):
+                # Normalize and expand user/env variables, then resolve to absolute path
+                expanded_path = Path(os.path.expandvars(os.path.expanduser(log_path))).resolve()
+
                 # Validate log file exists and is readable
-                if not Path(log_path).exists():
-                    error_message(f"Log file does not exist: {log_path}")
+                if not expanded_path.exists():
+                    error_message(f"Log file does not exist: {expanded_path}")
                     return False
-                    
-                if not os.access(log_path, os.R_OK):
-                    error_message(f"Cannot read log file: {log_path}")
+                
+                if not os.access(expanded_path, os.R_OK):
+                    error_message(f"Cannot read log file: {expanded_path}")
                     return False
                 
                 # Test API connection
@@ -1345,7 +1419,7 @@ class LogIQCLI:
             # Update configuration
             self.config.update({
                 'monitoring': {
-                    'log_path': str(Path(log_path).absolute()),
+                    'log_path': str(expanded_path),
                     'interval': interval,
                     'max_results': max_results,
                     'auto_enhance': auto_enhance,
@@ -1370,12 +1444,12 @@ class LogIQCLI:
             
             # Save profile metadata
             profile_metadata = {
-                'log_path': log_path,
+                'log_path': str(expanded_path),
                 'interval': interval,
                 'user': profile.get('username'),
                 'created': datetime.utcnow().isoformat(),
-                'file_size': Path(log_path).stat().st_size,
-                'file_modified': datetime.fromtimestamp(Path(log_path).stat().st_mtime).isoformat()
+                'file_size': expanded_path.stat().st_size,
+                'file_modified': datetime.fromtimestamp(expanded_path.stat().st_mtime).isoformat()
             }
             
             async with aiofiles.open(monitor_dir / "profile.json", 'w') as f:
@@ -2076,6 +2150,29 @@ class LogIQCLI:
 
 def main():
     """Main CLI entry point."""
+    # Create CLI instance
+    cli = LogIQCLI()
+    
+    # Set up cleanup handler
+    import atexit
+    import signal
+    
+    def cleanup_handler():
+        """Handle cleanup when CLI exits."""
+        try:
+            # Run async cleanup
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(cli.cleanup_cli_status())
+            loop.close()
+        except Exception as e:
+            print(f"Cleanup error: {e}")
+    
+    # Register cleanup handlers
+    atexit.register(cleanup_handler)
+    signal.signal(signal.SIGINT, lambda s, f: (cleanup_handler(), exit(0)))
+    signal.signal(signal.SIGTERM, lambda s, f: (cleanup_handler(), exit(0)))
+    
     parser = argparse.ArgumentParser(description="LogIQ CLI Tool for Automated Log Analysis")
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
@@ -2201,8 +2298,6 @@ def main():
     
     # Print banner for all commands
     print_banner()
-    
-    cli = LogIQCLI()
     
     # Attempt auto-login if not a login command
     if not (args.command == 'auth' and args.auth_command == 'login'):

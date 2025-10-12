@@ -6,6 +6,7 @@ from model.logs_model import LogAnalysisRequest, LogAnalysisResponse, AttackTech
 from model.analysis_model import AnalysisHistoryItem, UserAnalyticsStats
 from services import GeminiService, ChromaDBService
 from services.analysis_storage_service import analysis_storage_service
+from services.mitre_validation_service import mitre_validation_service
 from routers.auth import get_current_user
 from core import logger
 
@@ -86,6 +87,77 @@ async def analyze_logs(request: LogAnalysisRequest, current_user: dict = Depends
             )
             for tech in techniques_data
         ]
+        
+        # Step 2.5: Validate MITRE techniques to prevent hallucination
+        logger.info("Validating MITRE techniques against official framework")
+        validation_report = mitre_validation_service.validate_techniques_list(
+            [tech.model_dump() for tech in matched_techniques]
+        )
+        
+        # Check validation results and add warning to summary if needed
+        validation_summary = validation_report['validation_summary']
+        logger.info(f"Validation: {validation_summary['valid_techniques']}/{validation_summary['total_techniques']} "
+                   f"techniques valid (confidence: {validation_summary['average_confidence']:.2f})")
+        
+        # Define validation thresholds for warning
+        min_validation_rate = 0.6  # At least 60% of techniques should be valid
+        min_avg_confidence = 0.5   # Average confidence should be at least 50%
+        max_hallucinated = 3       # Maximum 3 hallucinated techniques
+        
+        validation_rate = validation_summary['validation_rate']
+        avg_confidence = validation_summary['average_confidence']
+        hallucinated_count = validation_report['issues']['likely_hallucinated']
+        
+        # Filter out low-confidence techniques and prepare validation warning
+        validated_techniques = []
+        filtered_count = 0
+        validation_warning = ""
+        
+        for i, result in enumerate(validation_report['detailed_results']):
+            if result.is_valid or result.confidence_score > 0.7:
+                # Use corrected data if available
+                if result.corrected_data:
+                    validated_techniques.append(AttackTechnique(**result.corrected_data))
+                    logger.info(f"Using corrected data for technique: {result.technique_id}")
+                else:
+                    validated_techniques.append(matched_techniques[i])
+            else:
+                filtered_count += 1
+                logger.warning(f"Filtered out low-confidence technique: {result.technique_id} "
+                             f"(confidence: {result.confidence_score:.2f})")
+        
+        matched_techniques = validated_techniques
+        
+        # Add validation warning to summary if quality is poor
+        if (validation_rate < min_validation_rate or 
+            avg_confidence < min_avg_confidence or 
+            hallucinated_count > max_hallucinated or
+            filtered_count > 0):
+            
+            warning_parts = []
+            if filtered_count > 0:
+                warning_parts.append(f"filtered out {filtered_count} unverified technique(s)")
+            if hallucinated_count > 0:
+                warning_parts.append(f"detected {hallucinated_count} potentially hallucinated technique(s)")
+            if validation_rate < min_validation_rate:
+                warning_parts.append(f"validation rate was {validation_rate:.1%} (below recommended 60%)")
+            
+            validation_warning = (
+                f"\n\n⚠️ MITRE ATT&CK Validation Notice: "
+                f"The MITRE framework identification may not be fully accurate. "
+                f"Analysis {', '.join(warning_parts)}. "
+                f"Please verify technique relevance manually. "
+                f"Consider refining your log query for better technique matching."
+            )
+            
+            logger.warning(f"Added validation warning to summary: {len(warning_parts)} issues detected")
+        
+        # Append validation warning to summary if present
+        if validation_warning:
+            summary += validation_warning
+        
+        if filtered_count > 0:
+            logger.info(f"Filtered out {filtered_count} low-confidence techniques, proceeding with {len(matched_techniques)} validated techniques")
         
         # Step 3: Enhanced analysis (if requested)
         enhanced_analysis = None

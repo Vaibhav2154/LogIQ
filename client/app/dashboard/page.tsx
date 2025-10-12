@@ -2,9 +2,11 @@
 import Navbar from '@/components/navbar'
 import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import MarkdownRenderer from '@/hooks/MarkDownRenderer'
 
 const DashboardPage = () => {
+  const router = useRouter()
   const [isVisible, setIsVisible] = useState(false)
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null)
   const [terminalText, setTerminalText] = useState('')
@@ -17,6 +19,7 @@ const DashboardPage = () => {
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<any | null>(null)
 
   const fullTerminalText = '> LOGIQ_DASHBOARD.EXE --MODE=OPERATIONAL'
 
@@ -99,6 +102,26 @@ const DashboardPage = () => {
 
 
   
+  const fetchUserProfile = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/users/me`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user profile: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setUserProfile(data);
+      console.log('User profile:', data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user profile';
+      console.log(errorMessage);
+    }
+  }
+
   const handleRecentAnalyses = async()=>{
     setLoading(true);
     setError(null);
@@ -122,6 +145,14 @@ const DashboardPage = () => {
   }
   useEffect(()=>{
     handleRecentAnalyses();
+    fetchUserProfile();
+    
+    // Refresh user profile every 5 seconds to show real-time CLI status
+    const interval = setInterval(() => {
+      fetchUserProfile();
+    }, 5000);
+    
+    return () => clearInterval(interval);
   },[])
 
 const recentSingleAnalyses  = async(elementId:string)=>{
@@ -189,6 +220,14 @@ const recentSingleAnalyses  = async(elementId:string)=>{
     setShowModal(false)
     setSelectedAnalysis(null)
   }, [])
+
+  const viewInVisualization = useCallback((analysis: any) => {
+    // Replace the current analysis in localStorage with the selected one
+    localStorage.setItem('latestAnalysis', JSON.stringify(analysis));
+    // Close the modal and navigate to visualization
+    closeModal();
+    router.push('/dashboard/visualization');
+  }, [router, closeModal])
 
   useEffect(() => {
   console.log("Updated allSingleAnalysis:", allSingleAnalysis)
@@ -307,11 +346,51 @@ const recentSingleAnalyses  = async(elementId:string)=>{
     return 'medium'
   }, [])
 
-  // Mock navigation function since we don't have Next.js router
+  // Navigation function with proper router integration
   const navigate = useCallback((href: string) => {
-    console.log(`Navigating to: ${href}`)
-    // In a real app, this would use Next.js router
-  }, [])
+    if (href === '/dashboard/visualization') {
+      // For visualization, fetch latest analysis summary and navigate
+      fetchLatestAnalysisSummary();
+    } else {
+      router.push(href);
+    }
+  }, [router])
+
+  const fetchLatestAnalysisSummary = async () => {
+    try {
+      // Try to get the latest analysis from localStorage first
+      const storedAnalysis = localStorage.getItem('latestAnalysis');
+      if (storedAnalysis) {
+        const analysis = JSON.parse(storedAnalysis);
+        // Navigate to visualization which will auto-load from localStorage
+        router.push('/dashboard/visualization');
+        return;
+      }
+
+      // If no stored analysis, try to fetch from API
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/latest`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.analysis) {
+          // Store the latest analysis in localStorage
+          localStorage.setItem('latestAnalysis', JSON.stringify(data.analysis));
+        }
+      }
+      
+      // Navigate to visualization regardless of API response
+      router.push('/dashboard/visualization');
+    } catch (err) {
+      console.error('Error fetching latest analysis:', err);
+      // Navigate anyway, visualization page will handle the error state
+      router.push('/dashboard/visualization');
+    }
+  }
 
   const FeatureCard = React.memo(({ feature, index }: { feature: any, index: number }) => (
     <div 
@@ -451,10 +530,14 @@ const recentSingleAnalyses  = async(elementId:string)=>{
           <div className="bg-black/80 backdrop-blur-sm border border-green-500/30 p-3 sm:p-4 font-mono">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-400 text-xs">[THREATS_ACTIVE]</p>
-                <p className="text-xl sm:text-2xl font-bold text-red-400">3</p>
+                <p className="text-green-400 text-xs">[CLI_STATUS]</p>
+                <p className={`text-xl sm:text-2xl font-bold ${userProfile?.cli_active ? 'text-green-400' : 'text-gray-400'}`}>
+                  {userProfile?.cli_active ? 'ACTIVE' : 'INACTIVE'}
+                </p>
               </div>
-              <div className="text-red-400 text-lg sm:text-xl">⚠️</div>
+              <div className={`text-lg sm:text-xl ${userProfile?.cli_active ? 'text-green-400' : 'text-gray-400'}`}>
+                {userProfile?.cli_active ? '🖥️' : '💤'}
+              </div>
             </div>
           </div>
 
@@ -690,6 +773,12 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                     className="px-4 py-2 bg-black border-2 border-gray-500 hover:border-gray-400 text-gray-400 hover:text-gray-300 font-medium transition-all duration-300 font-mono text-sm"
                   >
                     [CLOSE]
+                  </button>
+                  <button
+                    onClick={() => viewInVisualization(selectedAnalysis)}
+                    className="px-4 py-2 bg-black border-2 border-blue-500 hover:border-blue-400 text-blue-400 hover:text-blue-300 font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,100,255,0.5)] font-mono text-sm"
+                  >
+                    [VIEW_VISUALIZATION]
                   </button>
                   <button
                     onClick={() => {
