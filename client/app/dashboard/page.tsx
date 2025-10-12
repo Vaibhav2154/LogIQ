@@ -28,6 +28,10 @@ const DashboardPage = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<any | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalAnalysesCount, setTotalAnalysesCount] = useState(0)
+  const itemsPerPage = 10
 
   const fullTerminalText = '> LOGIQ_DASHBOARD.EXE --MODE=OPERATIONAL'
 
@@ -130,11 +134,12 @@ const DashboardPage = () => {
     }
   }
 
-  const handleRecentAnalyses = async()=>{
+  const handleRecentAnalyses = async(page: number = 1)=>{
     setLoading(true);
     setError(null);
     try{
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/history?limit=10&offset=0`, {
+      const offset = (page - 1) * itemsPerPage;
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/history?limit=${itemsPerPage}&offset=${offset}`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -145,15 +150,48 @@ const DashboardPage = () => {
       }
       const data = await response.json();
       setRecentAnalyses(data);
+      
+      // Calculate total pages based on response
+      // If the API returns total count, use it. Otherwise estimate from data length
+      const totalCount = data.total || (data.length === itemsPerPage ? (page + 1) * itemsPerPage : page * itemsPerPage);
+      setTotalPages(Math.ceil(totalCount / itemsPerPage));
+      
+      // Set the total count for display
+      if (data.total) {
+        setTotalAnalysesCount(data.total);
+      }
+      
       console.log(data);
     }catch(err){
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch recent analyses';
       console.log(errorMessage);
+    } finally {
+      setLoading(false);
     }
   }
+
+  // Fetch total count separately if not provided in history endpoint
+  const fetchTotalCount = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/history/count`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTotalAnalysesCount(data.count || data.total || 0);
+      }
+    } catch (err) {
+      console.log('Could not fetch total count:', err);
+    }
+  }
+
   useEffect(()=>{
-    handleRecentAnalyses();
+    handleRecentAnalyses(currentPage);
     fetchUserProfile();
+    fetchTotalCount(); // Fetch total count on mount
     
     // Refresh user profile every 5 seconds to show real-time CLI status
     const interval = setInterval(() => {
@@ -161,7 +199,7 @@ const DashboardPage = () => {
     }, 5000);
     
     return () => clearInterval(interval);
-  },[])
+  },[currentPage])
 
 const recentSingleAnalyses  = async(elementId:string)=>{
     try{
@@ -212,12 +250,21 @@ const recentSingleAnalyses  = async(elementId:string)=>{
     console.log("All single analyses final:", allSingleAnalysis);
   } catch (err) {
     console.log(err);
+  } finally {
+    setLoading(false);
   }
 };
 
   useEffect(()=>{
     allAnalysis();
   },[recentAnalyses])
+
+  const handlePageChange = useCallback((newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [totalPages])
 
   const handleAnalysisClick = useCallback((analysis: any) => {
     setSelectedAnalysis(analysis)
@@ -525,7 +572,7 @@ return istDate;
               <div>
                 <p className="text-green-400 text-xs">[TOTAL_ANALYSES]</p>
                 <p className="text-xl sm:text-2xl font-bold text-cyan-400">
-                  {recentAnalyses.length}
+                  {totalAnalysesCount > 0 ? totalAnalysesCount : recentAnalyses.length}
                 </p>
               </div>
               <div className="text-cyan-400 text-lg sm:text-xl"><BsGraphUp /></div>
@@ -555,7 +602,6 @@ return istDate;
               <div className={`text-lg sm:text-xl ${userProfile?.cli_active ? 'text-green-400' : 'text-gray-400'}`}>
                 {userProfile?.cli_active ? '🖥️' : '💤'}
               </div>
-              <div className="text-red-400 text-lg sm:text-xl"><FaExclamationTriangle /></div>
             </div>
           </div>
 
@@ -613,16 +659,23 @@ return istDate;
         </div>
 
 
-        {/* Terminal Recent Analyses and User Activity */}
-       {/*} <div className={`flex flex-col-1 w-full gap-4 sm:gap-6 transform transition-all duration-1000 delay-600 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-          {/* Recent Analyses */}
-          <div className="bg-black/80 backdrop-blur-sm border border-green-500/30 rounded-2xl p-4 sm:p-6">
+        {/* Terminal Recent Analyses with Pagination */}
+        <div className={`bg-black/80 backdrop-blur-sm border border-green-500/30 rounded-2xl p-4 sm:p-6 transform transition-all duration-1000 delay-600 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+          <div>
             <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex items-center text-green-400">
               <span className="w-2 h-2 bg-green-500 rounded-full mr-2 sm:mr-3 animate-pulse flex-shrink-0"></span>
               <span className="break-words">[RECENT_ANALYSES.LOG]</span>
+              <span className="ml-auto text-sm text-gray-400">
+                [PAGE_{currentPage}/{totalPages}]
+              </span>
             </h2>
             
-     { allSingleAnalysis.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-8 text-cyan-400">
+                <div className="inline-block animate-spin mr-2">⚙️</div>
+                Loading analyses...
+              </div>
+            ) : allSingleAnalysis.length === 0 ? (
               <div className="text-center py-8 text-gray-400">
                 No analyses available
               </div>
@@ -646,7 +699,7 @@ return istDate;
                       <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse flex-shrink-0"></div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-cyan-400 text-sm break-words">
-                          &gt; ANALYSIS_#{index + 1}
+                          &gt; ANALYSIS_#{((currentPage - 1) * itemsPerPage) + index + 1}
                         </h4>
                         <p className="text-xs text-gray-400">
                           [{convertUSToIST(analysis.analysis_timestamp).toLocaleString()}]
@@ -679,8 +732,101 @@ return istDate;
                   </div>
                 ))}
               </div>
-            )
-          }
+            )}
+
+            {/* Pagination Controls */}
+            {!loading && allSingleAnalysis.length > 0 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-700/30 pt-4">
+                <div className="text-xs text-gray-400">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalAnalysesCount > 0 ? totalAnalysesCount : totalPages * itemsPerPage)} of {totalAnalysesCount > 0 ? totalAnalysesCount : totalPages * itemsPerPage}
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  {/* First Page Button */}
+                  <button
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1 text-xs border font-mono transition-all ${
+                      currentPage === 1
+                        ? 'border-gray-700 text-gray-600 cursor-not-allowed'
+                        : 'border-cyan-500/30 hover:border-cyan-400 text-cyan-400 hover:bg-cyan-500/10'
+                    }`}
+                  >
+                    [&lt;&lt;]
+                  </button>
+
+                  {/* Previous Button */}
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1 text-xs border font-mono transition-all ${
+                      currentPage === 1
+                        ? 'border-gray-700 text-gray-600 cursor-not-allowed'
+                        : 'border-cyan-500/30 hover:border-cyan-400 text-cyan-400 hover:bg-cyan-500/10'
+                    }`}
+                  >
+                    [&lt;_PREV]
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => handlePageChange(pageNum)}
+                          className={`px-3 py-1 text-xs border font-mono transition-all ${
+                            currentPage === pageNum
+                              ? 'border-green-500 bg-green-500/20 text-green-400'
+                              : 'border-cyan-500/30 hover:border-cyan-400 text-cyan-400 hover:bg-cyan-500/10'
+                          }`}
+                        >
+                          [{pageNum}]
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next Button */}
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1 text-xs border font-mono transition-all ${
+                      currentPage === totalPages
+                        ? 'border-gray-700 text-gray-600 cursor-not-allowed'
+                        : 'border-cyan-500/30 hover:border-cyan-400 text-cyan-400 hover:bg-cyan-500/10'
+                    }`}
+                  >
+                    [NEXT_&gt;]
+                  </button>
+
+                  {/* Last Page Button */}
+                  <button
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1 text-xs border font-mono transition-all ${
+                      currentPage === totalPages
+                        ? 'border-gray-700 text-gray-600 cursor-not-allowed'
+                        : 'border-cyan-500/30 hover:border-cyan-400 text-cyan-400 hover:bg-cyan-500/10'
+                    }`}
+                  >
+                    [&gt;&gt;]
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 text-center">
               <button 
                 onClick={() => navigate('/dashboard/analysis')}
@@ -691,10 +837,8 @@ return istDate;
               </button>
             </div>
           </div>
+        </div>
 
-          {/* User Activity */}
-          
-       {/* </div>*/}
 
         {/* Analysis Detail Modal */}
         {showModal && selectedAnalysis && (
@@ -732,15 +876,13 @@ return istDate;
                   <div className="text-cyan-400 text-sm mb-2">[ANALYSIS_TIMESTAMP]</div>
                   <div className="bg-black/50 border border-gray-700/30 p-3 text-green-400">
                     &gt; 
-
-    <div>{convertUSToIST(selectedAnalysis.analysis_timestamp).toLocaleString()}</div>
-    <div>{selectedAnalysis.analysis_timestamp}</div>
+                    <div>{convertUSToIST(selectedAnalysis.analysis_timestamp).toLocaleString()}</div>
                   </div>
                 </div>
 
                 {/* Processing Time */}
                 <div className="mb-6">
-                  <div className="text-cyan-400 text-sm mb-2">[PROCESSING_TIME_MS]</div>
+                  <div className="text-cyan-400 text-sm mb-2">[PROCESSING_TIME_S]</div>
                   <div className="bg-black/50 border border-gray-700/30 p-3 text-green-400">
                     &gt; {(selectedAnalysis.processing_time_ms/1000)?.toFixed(2) || 'N/A'} s
                   </div>
@@ -804,11 +946,11 @@ return istDate;
                   </button>
                   
                   <button
-  onClick={() => selectedAnalysis && exportMarkdownToPdf(selectedAnalysis.summary)}
-  className="px-4 py-2 bg-black border-2 border-cyan-500 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,255,255,0.5)] font-mono text-sm"
->
-  [EXPORT]
-</button>
+                    onClick={() => selectedAnalysis && exportMarkdownToPdf(selectedAnalysis.summary)}
+                    className="px-4 py-2 bg-black border-2 border-cyan-500 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,255,255,0.5)] font-mono text-sm"
+                  >
+                    [EXPORT]
+                  </button>
                 </div>
               </div>
             </div>
