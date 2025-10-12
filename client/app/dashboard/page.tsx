@@ -273,7 +273,9 @@ const recentSingleAnalyses  = async(elementId:string)=>{
   }, [])
 
 const convertUSToIST = (timeG: string | Date) => {
+  console.log("Original US time : ", timeG);
   const utcDate = new Date(timeG);
+  console.log("Converted UTC time : ", utcDate);
 const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 mins in ms
 const istDate = new Date(utcDate.getTime() + istOffset);
 return istDate;
@@ -732,7 +734,7 @@ return istDate;
                     &gt; 
 
     <div>{convertUSToIST(selectedAnalysis.analysis_timestamp).toLocaleString()}</div>
-    
+    <div>{selectedAnalysis.analysis_timestamp}</div>
                   </div>
                 </div>
 

@@ -1,21 +1,18 @@
 'use client';
-
-import html2pdf from "html2pdf.js";
 import { marked } from "marked";
 
-// Function to export markdown to PDF
-export const exportMarkdownToPdf = (markdownContent) => {
-  // 1. Create a temporary container
+export const exportMarkdownToPdf = async (markdownContent) => {
+  // Dynamically import html2pdf (only runs in browser)
+  const html2pdf = (await import("html2pdf.js")).default;
+
   const container = document.createElement("div");
   container.style.padding = "20px";
   container.style.background = "white";
   container.style.color = "black";
   container.style.fontFamily = "system-ui, sans-serif";
 
-  // 2. Convert markdown to HTML
   container.innerHTML = marked.parse(markdownContent);
 
-  // 3. Add some simple styling for neat formatting
   const style = document.createElement("style");
   style.innerHTML = `
     h1 { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
@@ -29,7 +26,6 @@ export const exportMarkdownToPdf = (markdownContent) => {
   `;
   container.appendChild(style);
 
-  // 4. Generate PDF
   const options = {
     margin: 0.5,
     filename: "markdown.pdf",
@@ -41,9 +37,5 @@ export const exportMarkdownToPdf = (markdownContent) => {
   html2pdf()
     .set(options)
     .from(container)
-    .outputPdf("blob")
-    .then((pdfBlob) => {
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      window.open(blobUrl); // open PDF in new tab
-    });
+    .save();
 };
