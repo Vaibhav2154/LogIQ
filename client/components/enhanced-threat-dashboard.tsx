@@ -186,7 +186,7 @@ const EnhancedThreatDashboard: React.FC<{ analysisData: EnhancedAnalysisData }> 
               </div>
               <div className="bg-black/60 border border-green-500/30 p-4 text-center">
                 <div className="text-2xl font-bold text-green-400">
-                  {Math.round(analysisData.processing_time_ms)}ms
+                  {Math.round(analysisData.processing_time_ms)/1000}s
                 </div>
                 <div className="text-xs text-gray-400">ANALYSIS_TIME</div>
               </div>

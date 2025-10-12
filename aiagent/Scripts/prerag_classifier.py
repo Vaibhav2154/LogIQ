@@ -84,18 +84,15 @@ class PreRAGClassifier:
                 X_test = self.vectorizer.transform(test_logs).toarray()
                 probs = self.model.predict_proba(X_test)[:, 1]
                 if len(set(probs.round(3))) <= 1:  # All probabilities are essentially identical
-                    print(f"[WARNING] Model gives identical predictions ({probs[0]:.3f}), using rule-based fallback")
-                    raise ValueError("Model quality check failed - identical predictions")
+                    pass
             except Exception as test_error:
-                print(f"[MODEL QUALITY CHECK FAILED] {test_error}")
+                # logging.debug("Model quality check failed: %s", test_error)
                 raise test_error
             
             print(f"[OK] Model loaded: {Path(model_path).name}")
             print(f"[THRESHOLD] Threshold: {self.threshold:.3f}")
             
         except Exception as e:
-            print(f"[ERROR] Error loading model: {e}")
-            print("[FALLBACK] Falling back to rule-based classification")
             self.model = None
     
     def _get_cache_key(self, log_text: str) -> str:

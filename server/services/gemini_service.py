@@ -36,8 +36,14 @@ class GeminiService:
             2. **System Activities**: Key system operations, service starts/stops, configuration changes
             3. **Network Activities**: Network connections, data transfers, unusual traffic patterns
             4. **Error Patterns**: Recurring errors, system failures, anomalies
-            5. **Timeline**: Key events in chronological order
+            5. **Timeline**: Key events in chronological order with timestamps converted to IST (Indian Standard Time)
             6. **Potential Threats**: Any indicators of compromise or suspicious activities
+
+            IMPORTANT FORMATTING REQUIREMENTS:
+            - Use the actual date from the log events, not the current date
+            - Convert all timestamps to IST (UTC+5:30) timezone
+            - Format timestamps as: YYYY-MM-DD HH:MM:SS IST
+            - Include the analysis date as the date from the actual log events
 
             Format your response as a clear, structured analysis that can be used for threat detection.
 

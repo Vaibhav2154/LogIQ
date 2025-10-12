@@ -1,7 +1,11 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
+import { FaAlignLeft, FaSearch  } from "react-icons/fa";
+import { FaShield } from "react-icons/fa6";
+import { HiMiniComputerDesktop } from "react-icons/hi2";
 
 
 const Navbar = () => {
@@ -11,10 +15,10 @@ const Navbar = () => {
   const [isMobile, setIsMobile] = useState(false)
 
   const navItems = [
-    { name: 'DASHBOARD.SYS', href: '/dashboard', icon: '📊', shortName: 'DASH' },
-    { name: 'MITRE_ATTACK.DB', href: '/dashboard/mitre', icon: '🛡️', shortName: 'MITRE' },
-    { name: 'ANALYSIS.EXE', href: '/dashboard/analysis', icon: '🔍', shortName: 'ANALYZE' },
-    { name: 'CLI_GUIDE', href: '/dashboard/cliguide', icon: '🖥️', shortName: 'CLI' }
+    { name: 'DASHBOARD.SYS', href: '/dashboard', icon: <FaAlignLeft />, shortName: 'DASH' },
+    { name: 'MITRE_ATTACK.DB', href: '/dashboard/mitre', icon: <FaShield />, shortName: 'MITRE' },
+    { name: 'ANALYSIS.EXE', href: '/dashboard/analysis', icon:<FaSearch />, shortName: 'ANALYZE' },
+    { name: 'CLI_GUIDE', href: '/dashboard/cliguide', icon: <HiMiniComputerDesktop />, shortName: 'CLI' }
   ]
 
   useEffect(() => {
@@ -54,8 +58,16 @@ const Navbar = () => {
         <div className='flex items-center justify-between max-w-7xl mx-auto'>
           {/* Logo Section */}
           <div className='flex items-center space-x-2 sm:space-x-3 flex-shrink-0'>
-            <div className='w-6 h-6 sm:w-8 sm:h-8 bg-black border-2 border-green-500 flex items-center justify-center'>
-              <span className='text-green-400 font-bold text-xs sm:text-sm'>L</span>
+            {/* Brand logo from /public/logo.png */}
+            <div className='relative w-6 h-6 sm:w-8 sm:h-8'>
+              <Image
+                src="/logo.png"
+                alt="LogIQ logo"
+                fill
+                sizes="(max-width: 640px) 24px, 32px"
+                className="object-contain drop-shadow-[0_0_8px_rgba(34,197,94,0.35)]"
+                priority
+              />
             </div>
             <h1 className='text-sm sm:text-lg md:text-xl font-bold text-green-400 tracking-wider'>
               <span className='hidden sm:inline'>[LOGIQ_V2.0]</span>

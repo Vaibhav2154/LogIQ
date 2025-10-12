@@ -374,7 +374,16 @@ const AnalysisPage = () => {
                     <h2 className="text-lg sm:text-xl font-semibold text-cyan-400 break-words">[ANALYSIS_RESULTS.LOG]</h2>
                     <div className="text-left sm:text-right text-xs sm:text-sm text-green-400 font-mono">
                       <div>[PROCESSED_IN]: {(analysis.processing_time_ms / 1000).toFixed(2)}s</div>
-                      <div className="break-all">[TIMESTAMP]: {new Date(analysis.analysis_timestamp).toLocaleString()}</div>
+                      <div className="break-all">[TIMESTAMP]: {new Date(analysis.analysis_timestamp).toLocaleString('en-IN', {
+                        timeZone: 'Asia/Kolkata',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                      })} IST</div>
                     </div>
                   </div>
                   
@@ -507,7 +516,7 @@ const AnalysisPage = () => {
         </div>
         
         <div className="hidden sm:block absolute bottom-32 left-16 text-green-500/20 font-mono text-xs animate-pulse delay-2000">
-          [ANALYSIS@FORENSIQ]#
+          [ANALYSIS@LOGIQ]#
         </div>
       </div>
 

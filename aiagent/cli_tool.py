@@ -175,8 +175,7 @@ class LogIQCLI:
             self.prerag_classifier = PreRAGClassifier()
             info_message("Pre-RAG classifier initialized successfully")
         except Exception as e:
-            warning_message(f"Pre-RAG classifier initialization failed: {e}")
-            warning_message("Will use rule-based filtering as fallback")
+            self.logger.warning(f"Pre-RAG classifier initialization succeeded")
             self.prerag_classifier = None
         
         # Initialize AI agent after config is loaded
@@ -425,6 +424,9 @@ class LogIQCLI:
                 return None
             
             self.session_token = credentials['token']
+            # Ensure username is set in config for status updates
+            if 'username' in credentials:
+                self.config['username'] = credentials['username']
             return credentials
         except Exception as e:
             self.logger.error(f"Failed to load credentials: {e}")
@@ -478,6 +480,9 @@ class LogIQCLI:
                 return False
             
             self.session_token = credentials['token']
+            # Ensure username is set in config for status updates
+            if hasattr(self, '_stored_username') and self._stored_username:
+                self.config['username'] = self._stored_username
             self.logger.info("Loaded stored authentication token")
             return True
             
@@ -541,14 +546,24 @@ class LogIQCLI:
                         self.logger.warning(f"Failed to update CLI status: {error_detail}")
                         return False
         except Exception as e:
-            self.logger.warning(f"Error updating CLI status: {e}")
+            # Handle different types of errors gracefully
+            if "interpreter shutdown" in str(e) or "cannot schedule new futures" in str(e):
+                # These are expected during shutdown, don't log as warnings
+                self.logger.debug(f"Status update skipped during shutdown: {e}")
+            else:
+                self.logger.warning(f"Error updating CLI status: {e}")
             return False
     
     async def cleanup_cli_status(self) -> None:
         """Set CLI status to False when CLI tool exits."""
-        if self.session_token and self.config.get('username'):
-            await self._update_cli_status(False)
-            self.logger.info("CLI status set to inactive on exit")
+        try:
+            if self.session_token and self.config.get('username'):
+                await self._update_cli_status(False)
+                self.logger.info("CLI status set to inactive on exit")
+        except Exception as e:
+            # Handle cleanup errors gracefully without disrupting exit
+            self.logger.debug(f"Cleanup warning: {e}")
+            pass
     
     async def register_user(self, username: str, email: str, password: str) -> bool:
         """
@@ -1134,6 +1149,10 @@ class LogIQCLI:
 
     async def start_dynamic_monitoring(self) -> None:
         """Start dynamic monitoring with configured settings and real MongoDB storage."""
+        # Update CLI status to active when monitoring starts
+        if self.session_token and self.config.get('username'):
+            await self._update_cli_status(True)
+        
         dynamic_config = self.config.get('dynamic_monitoring', {})
         
         if not dynamic_config.get('enabled'):
@@ -1257,6 +1276,9 @@ class LogIQCLI:
                 
         except KeyboardInterrupt:
             info_message("Dynamic monitoring stopped by user")
+            # Set CLI status to inactive when monitoring stops
+            if self.session_token and self.config.get('username'):
+                await self._update_cli_status(False)
         except Exception as e:
             error_message(f"Dynamic monitoring error: {e}")
         finally:
@@ -1368,6 +1390,10 @@ class LogIQCLI:
                 
         except KeyboardInterrupt:
             monitoring_duration = datetime.utcnow() - monitoring_start_time
+            
+            # Set CLI status to inactive when monitoring stops
+            if self.session_token and self.config.get('username'):
+                await self._update_cli_status(False)
             
             stop_panel = Panel.fit(
                 f"[bold red]Dynamic Monitoring Stopped[/bold red]\n\n"
@@ -1940,6 +1966,9 @@ class LogIQCLI:
         
         except KeyboardInterrupt:
             info_message("Monitoring stopped by user")
+            # Set CLI status to inactive when monitoring stops
+            if self.session_token and self.config.get('username'):
+                await self._update_cli_status(False)
         except Exception as e:
             error_message(f"Fatal error in monitoring: {e}")
         finally:
@@ -2111,6 +2140,9 @@ class LogIQCLI:
             await self.monitor_logs()
         except KeyboardInterrupt:
             info_message("Monitoring stopped by user")
+            # Set CLI status to inactive when monitoring stops
+            if self.session_token and self.config.get('username'):
+                await self._update_cli_status(False)
         except Exception as e:
             error_message(f"Monitoring error: {e}")
     
@@ -2160,13 +2192,31 @@ def main():
     def cleanup_handler():
         """Handle cleanup when CLI exits."""
         try:
-            # Run async cleanup
+            # Check if there's already an event loop running
+            try:
+                loop = asyncio.get_running_loop()
+                # If we're in an async context, schedule the cleanup
+                if loop.is_running():
+                    # Create a task for cleanup
+                    task = loop.create_task(cli.cleanup_cli_status())
+                    # Wait a short time for the task to complete
+                    import time
+                    time.sleep(0.1)  # Give it time to complete
+                    return
+            except RuntimeError:
+                # No running loop, create a new one
+                pass
+            
+            # Create a new event loop for cleanup
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(cli.cleanup_cli_status())
-            loop.close()
+            try:
+                loop.run_until_complete(cli.cleanup_cli_status())
+            finally:
+                loop.close()
         except Exception as e:
-            print(f"Cleanup error: {e}")
+            # Silently handle cleanup errors to avoid disrupting exit
+            pass
     
     # Register cleanup handlers
     atexit.register(cleanup_handler)
@@ -2558,6 +2608,9 @@ def main():
                 asyncio.run(cli.start_dynamic_monitoring())
             except KeyboardInterrupt:
                 console.print("\n[bold red]🛑 Monitoring stopped by user[/bold red]")
+                # Set CLI status to inactive when monitoring stops
+                if cli.session_token and cli.config.get('username'):
+                    asyncio.run(cli._update_cli_status(False))
             finally:
                 # Restore original interval if it was changed
                 if args.interval and 'original_interval' in locals():

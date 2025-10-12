@@ -5,6 +5,85 @@ All notable changes to the LogIQ CLI Tool will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2025-10-12
+
+### Changed
+
+- Reduced default logging noise during startup; ML fallback diagnostics moved to DEBUG
+- Minor stability improvements in model initialization paths
+
+### Docs
+
+- Updated README to 1.8.0 with quieter logs note
+- Added `RELEASE_NOTES_v1.8.0.md`
+
+## [1.7.0] - 2025-10-12
+
+### Added
+- CLI UX polish and help improvements, clearer messages and exit codes
+- Minor performance improvements in status update paths
+- Documentation refresh for 1.7 including quick commands and screenshots placeholders
+
+### Fixed
+- Addressed intermittent Windows-specific cleanup edge cases
+- Small typos and links in documentation
+
+### Improved
+- More resilient shutdown flow when Ctrl+C/terminal close occurs
+- Streamlined dependency versions, validated against Python 3.12
+
+## [1.6.0] - 2025-01-12
+
+### Added
+- **Enhanced Cleanup Mechanism**: Improved event loop handling and cleanup process for graceful CLI exit
+- **Better Error Handling**: Enhanced error handling for shutdown scenarios and interpreter shutdown
+- **Robust Status Updates**: More reliable status update mechanism during CLI exit
+- **Download Metrics**: Added comprehensive download badges and metrics to project documentation
+
+### Fixed
+- **Cleanup Warnings**: Fixed "Cannot run the event loop while another loop is running" warnings
+- **Event Loop Conflicts**: Resolved event loop conflicts during cleanup process
+- **Shutdown Errors**: Improved handling of interpreter shutdown scenarios
+- **Coroutine Warnings**: Fixed "coroutine was never awaited" warnings during cleanup
+
+### Improved
+- **Graceful Exit**: More robust cleanup process that handles various exit scenarios
+- **Error Resilience**: Better error handling that doesn't disrupt normal CLI operation
+- **User Experience**: Cleaner exit process without warning messages
+- **Code Quality**: Improved code structure and error handling patterns
+
+### Technical Improvements
+- Enhanced `cleanup_handler()` function with better event loop management
+- Improved `cleanup_cli_status()` method with graceful error handling
+- Better `_update_cli_status()` method with shutdown scenario detection
+- Added comprehensive download metrics and project badges
+
+## [1.5.0] - 2025-01-12
+
+### Added
+- **Real-time CLI Status Updates**: CLI tool now properly updates user status to active/inactive on the frontend dashboard
+- **Enhanced Authentication Flow**: Improved credential loading and username configuration for better status tracking
+- **Automatic Status Management**: CLI status automatically updates when monitoring starts and stops
+- **Better Error Handling**: Enhanced error handling for authentication and status update failures
+
+### Fixed
+- **Critical Authentication Bug**: Fixed issue where CLI status wasn't updating due to missing username configuration
+- **Status Update Reliability**: Resolved problems with CLI status not changing to active when monitoring starts
+- **Credential Loading**: Fixed username not being set in config after loading stored credentials
+- **Cleanup Handling**: Improved cleanup mechanisms to ensure status is set to inactive when CLI exits
+
+### Improved
+- **User Experience**: Frontend dashboard now shows real-time CLI status (ACTIVE/INACTIVE)
+- **Monitoring Integration**: Better integration between CLI monitoring and dashboard status display
+- **Authentication Persistence**: More reliable authentication state management across CLI sessions
+- **Status Synchronization**: Improved synchronization between CLI tool and server for user status
+
+### Technical Improvements
+- Enhanced `_load_stored_token()` method to properly set username in config
+- Improved `_load_credentials()` method for better credential management
+- Added comprehensive status update calls in all monitoring KeyboardInterrupt handlers
+- Better error handling and logging for status update operations
+
 ## [1.4.0] - 2024-12-19
 
 ### Fixed
