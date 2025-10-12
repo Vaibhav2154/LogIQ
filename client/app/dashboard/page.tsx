@@ -4,6 +4,14 @@ import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import MarkdownRenderer from '@/hooks/MarkDownRenderer'
+import  {exportMarkdownToPdf} from "../../hooks/MarkDownToPdf"
+import { BsGraphUp } from "react-icons/bs";
+import { FaShield } from "react-icons/fa6";
+import { GrValidate } from "react-icons/gr";
+import { FaExclamationTriangle } from "react-icons/fa";
+import { LuScanEye } from "react-icons/lu";
+import { FaSearch } from "react-icons/fa";
+
 
 const DashboardPage = () => {
   const router = useRouter()
@@ -19,6 +27,11 @@ const DashboardPage = () => {
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<any | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalAnalysesCount, setTotalAnalysesCount] = useState(0)
+  const itemsPerPage = 10
 
   const fullTerminalText = '> LOGIQ_DASHBOARD.EXE --MODE=OPERATIONAL'
 
@@ -62,7 +75,7 @@ const DashboardPage = () => {
       shortTitle: 'LOG_ANALYSIS',
       description: 'AI-powered analysis of security logs with MITRE ATT&CK technique mapping',
       shortDescription: 'AI-powered log analysis with MITRE mapping',
-      icon: '🔍',
+      icon: <FaSearch />,
       href: '/dashboard/analysis',
       color: 'cyan',
       stats: 'REALTIME_ANALYSIS'
@@ -72,7 +85,7 @@ const DashboardPage = () => {
       shortTitle: 'VISUALIZATION',
       description: 'Enhanced threat visualization dashboard with advanced analytics',
       shortDescription: 'Enhanced threat visualization dashboard',
-      icon: '�',
+      icon: <LuScanEye />,
       href: '/dashboard/visualization',
       color: 'purple',
       stats: 'INTERACTIVE_CHARTS'
@@ -82,7 +95,7 @@ const DashboardPage = () => {
       shortTitle: 'MITRE_ATTACK',
       description: 'Comprehensive threat intelligence and attack technique database',
       shortDescription: 'Threat intelligence and attack technique database',
-      icon: '🛡',
+      icon: <FaShield />,
       href: '/dashboard/mitre',
       color: 'green',
       stats: 'ENTERPRISE_TECH'
@@ -92,7 +105,7 @@ const DashboardPage = () => {
       shortTitle: 'THREAT_INTEL',
       description: 'Advanced threat detection and response capabilities for modern security operations',
       shortDescription: 'Advanced threat detection and response',
-      icon: '⚠',
+      icon: <FaExclamationTriangle />,
       href: '/dashboard',
       color: 'red',
       stats: 'THREAT_INTEL'
@@ -101,11 +114,32 @@ const DashboardPage = () => {
 
 
   
-  const handleRecentAnalyses = async()=>{
+  const fetchUserProfile = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/users/me`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user profile: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setUserProfile(data);
+      console.log('User profile:', data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user profile';
+      console.log(errorMessage);
+    }
+  }
+
+  const handleRecentAnalyses = async(page: number = 1)=>{
     setLoading(true);
     setError(null);
     try{
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/history?limit=10&offset=0`, {
+      const offset = (page - 1) * itemsPerPage;
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/history?limit=${itemsPerPage}&offset=${offset}`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -116,15 +150,56 @@ const DashboardPage = () => {
       }
       const data = await response.json();
       setRecentAnalyses(data);
+      
+      // Calculate total pages based on response
+      // If the API returns total count, use it. Otherwise estimate from data length
+      const totalCount = data.total || (data.length === itemsPerPage ? (page + 1) * itemsPerPage : page * itemsPerPage);
+      setTotalPages(Math.ceil(totalCount / itemsPerPage));
+      
+      // Set the total count for display
+      if (data.total) {
+        setTotalAnalysesCount(data.total);
+      }
+      
       console.log(data);
     }catch(err){
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch recent analyses';
       console.log(errorMessage);
+    } finally {
+      setLoading(false);
     }
   }
+
+  // Fetch total count separately if not provided in history endpoint
+  const fetchTotalCount = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/history/count`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTotalAnalysesCount(data.count || data.total || 0);
+      }
+    } catch (err) {
+      console.log('Could not fetch total count:', err);
+    }
+  }
+
   useEffect(()=>{
-    handleRecentAnalyses();
-  },[])
+    handleRecentAnalyses(currentPage);
+    fetchUserProfile();
+    fetchTotalCount(); // Fetch total count on mount
+    
+    // Refresh user profile every 5 seconds to show real-time CLI status
+    const interval = setInterval(() => {
+      fetchUserProfile();
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  },[currentPage])
 
 const recentSingleAnalyses  = async(elementId:string)=>{
     try{
@@ -175,12 +250,21 @@ const recentSingleAnalyses  = async(elementId:string)=>{
     console.log("All single analyses final:", allSingleAnalysis);
   } catch (err) {
     console.log(err);
+  } finally {
+    setLoading(false);
   }
 };
 
   useEffect(()=>{
     allAnalysis();
   },[recentAnalyses])
+
+  const handlePageChange = useCallback((newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [totalPages])
 
   const handleAnalysisClick = useCallback((analysis: any) => {
     setSelectedAnalysis(analysis)
@@ -234,6 +318,15 @@ const recentSingleAnalyses  = async(elementId:string)=>{
       default: return 'border-gray-500/30 hover:border-gray-400 text-gray-400 bg-gray-500/10'
     }
   }, [])
+
+const convertUSToIST = (timeG: string | Date) => {
+  console.log("Original US time : ", timeG);
+  const utcDate = new Date(timeG);
+  console.log("Converted UTC time : ", utcDate);
+const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 mins in ms
+const istDate = new Date(utcDate.getTime() + istOffset);
+return istDate;
+}
 
   const getSeverityColor = useCallback((severity: string) => {
     switch (severity?.toLowerCase()) {
@@ -295,7 +388,16 @@ const recentSingleAnalyses  = async(elementId:string)=>{
     if (!timestamp) return 'N/A'
     try {
       const date = new Date(timestamp)
-      return date.toLocaleString()
+      return date.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }) + ' IST'
     } catch {
       return 'Invalid Date'
     }
@@ -479,10 +581,10 @@ const recentSingleAnalyses  = async(elementId:string)=>{
               <div>
                 <p className="text-green-400 text-xs">[TOTAL_ANALYSES]</p>
                 <p className="text-xl sm:text-2xl font-bold text-cyan-400">
-                  {recentAnalyses.length}
+                  {totalAnalysesCount > 0 ? totalAnalysesCount : recentAnalyses.length}
                 </p>
               </div>
-              <div className="text-cyan-400 text-lg sm:text-xl">📈</div>
+              <div className="text-cyan-400 text-lg sm:text-xl"><BsGraphUp /></div>
             </div>
           </div>
           
@@ -494,17 +596,21 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                   {totalTechniques}
                 </p>
               </div>
-              <div className="text-green-400 text-lg sm:text-xl">🛡️</div>
+              <div className="text-green-400 text-lg sm:text-xl"><FaShield /></div>
             </div>
           </div>
 
           <div className="bg-black/80 backdrop-blur-sm border border-green-500/30 p-3 sm:p-4 font-mono">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-400 text-xs">[THREATS_ACTIVE]</p>
-                <p className="text-xl sm:text-2xl font-bold text-red-400">3</p>
+                <p className="text-green-400 text-xs">[CLI_STATUS]</p>
+                <p className={`text-xl sm:text-2xl font-bold ${userProfile?.cli_active ? 'text-green-400' : 'text-gray-400'}`}>
+                  {userProfile?.cli_active ? 'ACTIVE' : 'INACTIVE'}
+                </p>
               </div>
-              <div className="text-red-400 text-lg sm:text-xl">⚠️</div>
+              <div className={`text-lg sm:text-xl ${userProfile?.cli_active ? 'text-green-400' : 'text-gray-400'}`}>
+                {userProfile?.cli_active ? '🖥️' : '💤'}
+              </div>
             </div>
           </div>
 
@@ -514,7 +620,7 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                 <p className="text-green-400 text-xs">[SYSTEM_STATUS]</p>
                 <p className="text-sm sm:text-base font-bold text-green-400">ONLINE</p>
               </div>
-              <div className="text-green-400 text-lg sm:text-xl">✅</div>
+              <div className="text-green-400 text-lg sm:text-xl"><GrValidate/></div>
             </div>
           </div>
         </div>
@@ -562,16 +668,23 @@ const recentSingleAnalyses  = async(elementId:string)=>{
         </div>
 
 
-        {/* Terminal Recent Analyses and User Activity */}
-       {/*} <div className={`flex flex-col-1 w-full gap-4 sm:gap-6 transform transition-all duration-1000 delay-600 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-          {/* Recent Analyses */}
-          <div className="bg-black/80 backdrop-blur-sm border border-green-500/30 rounded-2xl p-4 sm:p-6">
+        {/* Terminal Recent Analyses with Pagination */}
+        <div className={`bg-black/80 backdrop-blur-sm border border-green-500/30 rounded-2xl p-4 sm:p-6 transform transition-all duration-1000 delay-600 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+          <div>
             <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex items-center text-green-400">
               <span className="w-2 h-2 bg-green-500 rounded-full mr-2 sm:mr-3 animate-pulse flex-shrink-0"></span>
               <span className="break-words">[RECENT_ANALYSES.LOG]</span>
+              <span className="ml-auto text-sm text-gray-400">
+                [PAGE_{currentPage}/{totalPages}]
+              </span>
             </h2>
             
-     { allSingleAnalysis.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-8 text-cyan-400">
+                <div className="inline-block animate-spin mr-2">⚙️</div>
+                Loading analyses...
+              </div>
+            ) : allSingleAnalysis.length === 0 ? (
               <div className="text-center py-8 text-gray-400">
                 No analyses available
               </div>
@@ -595,10 +708,10 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                       <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse flex-shrink-0"></div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-cyan-400 text-sm break-words">
-                          &gt; ANALYSIS_#{index + 1}
+                          &gt; ANALYSIS_#{((currentPage - 1) * itemsPerPage) + index + 1}
                         </h4>
                         <p className="text-xs text-gray-400">
-                          [{formatTimestamp(analysis?.analysis_timestamp)}]
+                          [{convertUSToIST(analysis.analysis_timestamp).toLocaleString()}]
                         </p>
                       </div>
                     </div>
@@ -628,8 +741,101 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                   </div>
                 ))}
               </div>
-            )
-          }
+            )}
+
+            {/* Pagination Controls */}
+            {!loading && allSingleAnalysis.length > 0 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-700/30 pt-4">
+                <div className="text-xs text-gray-400">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalAnalysesCount > 0 ? totalAnalysesCount : totalPages * itemsPerPage)} of {totalAnalysesCount > 0 ? totalAnalysesCount : totalPages * itemsPerPage}
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  {/* First Page Button */}
+                  <button
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1 text-xs border font-mono transition-all ${
+                      currentPage === 1
+                        ? 'border-gray-700 text-gray-600 cursor-not-allowed'
+                        : 'border-cyan-500/30 hover:border-cyan-400 text-cyan-400 hover:bg-cyan-500/10'
+                    }`}
+                  >
+                    [&lt;&lt;]
+                  </button>
+
+                  {/* Previous Button */}
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1 text-xs border font-mono transition-all ${
+                      currentPage === 1
+                        ? 'border-gray-700 text-gray-600 cursor-not-allowed'
+                        : 'border-cyan-500/30 hover:border-cyan-400 text-cyan-400 hover:bg-cyan-500/10'
+                    }`}
+                  >
+                    [&lt;_PREV]
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => handlePageChange(pageNum)}
+                          className={`px-3 py-1 text-xs border font-mono transition-all ${
+                            currentPage === pageNum
+                              ? 'border-green-500 bg-green-500/20 text-green-400'
+                              : 'border-cyan-500/30 hover:border-cyan-400 text-cyan-400 hover:bg-cyan-500/10'
+                          }`}
+                        >
+                          [{pageNum}]
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next Button */}
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1 text-xs border font-mono transition-all ${
+                      currentPage === totalPages
+                        ? 'border-gray-700 text-gray-600 cursor-not-allowed'
+                        : 'border-cyan-500/30 hover:border-cyan-400 text-cyan-400 hover:bg-cyan-500/10'
+                    }`}
+                  >
+                    [NEXT_&gt;]
+                  </button>
+
+                  {/* Last Page Button */}
+                  <button
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1 text-xs border font-mono transition-all ${
+                      currentPage === totalPages
+                        ? 'border-gray-700 text-gray-600 cursor-not-allowed'
+                        : 'border-cyan-500/30 hover:border-cyan-400 text-cyan-400 hover:bg-cyan-500/10'
+                    }`}
+                  >
+                    [&gt;&gt;]
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 text-center">
               <button 
                 onClick={() => navigate('/dashboard/analysis')}
@@ -640,10 +846,8 @@ const recentSingleAnalyses  = async(elementId:string)=>{
               </button>
             </div>
           </div>
+        </div>
 
-          {/* User Activity */}
-          
-       {/* </div>*/}
 
         {/* Analysis Detail Modal */}
         {showModal && selectedAnalysis && (
@@ -673,21 +877,23 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                 </button>
               </div>
 
+          
               {/* Modal Content */}
               <div className="p-6 overflow-y-auto max-h-[70vh]">
                 {/* Analysis Timestamp */}
                 <div className="mb-6">
                   <div className="text-cyan-400 text-sm mb-2">[ANALYSIS_TIMESTAMP]</div>
                   <div className="bg-black/50 border border-gray-700/30 p-3 text-green-400">
-                    &gt; {formatTimestamp(selectedAnalysis.analysis_timestamp)}
+                    &gt; 
+                    <div>{convertUSToIST(selectedAnalysis.analysis_timestamp).toLocaleString()}</div>
                   </div>
                 </div>
 
                 {/* Processing Time */}
                 <div className="mb-6">
-                  <div className="text-cyan-400 text-sm mb-2">[PROCESSING_TIME_MS]</div>
+                  <div className="text-cyan-400 text-sm mb-2">[PROCESSING_TIME_S]</div>
                   <div className="bg-black/50 border border-gray-700/30 p-3 text-green-400">
-                    &gt; {selectedAnalysis.processing_time_ms?.toFixed(2) || 'N/A'} ms
+                    &gt; {(selectedAnalysis.processing_time_ms/1000)?.toFixed(2) || 'N/A'} s
                   </div>
                 </div>
 
@@ -747,11 +953,9 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                   >
                     [VIEW_VISUALIZATION]
                   </button>
+                  
                   <button
-                    onClick={() => {
-                      console.log('Export analysis:', selectedAnalysis)
-                      // In a real app, this would trigger an export function
-                    }}
+                    onClick={() => selectedAnalysis && exportMarkdownToPdf(selectedAnalysis.summary)}
                     className="px-4 py-2 bg-black border-2 border-cyan-500 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,255,255,0.5)] font-mono text-sm"
                   >
                     [EXPORT]

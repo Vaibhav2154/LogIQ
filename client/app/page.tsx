@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 const Hyperspeed = () => {
   return <div className="absolute inset-0 bg-black" />;
@@ -82,9 +83,20 @@ const LandingPage = () => {
           {/* TrackBack Title */}
           <div className={`text-center transform transition-all duration-1000 delay-300 ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'}`}>
             <div className="relative">
-              <h2 className='text-4xl md:text-8xl font-black mb-4 text-green-400 tracking-wider filter  glitch-text'>
+              {/* Brand Logo */}
+                <div className="mx-auto mb-4 w-[140px] h-[140px] md:w-[180px] md:h-[180px] relative drop-shadow-[0_0_20px_rgba(34,197,94,0.35)]">
+                <Image
+                  src="/icon.png"
+                  alt="LogIQ logo"
+                  fill
+                  sizes="(max-width: 768px) 140px, 180px"
+                  className="object-contain"
+                  priority
+                />
+                </div>
+              <h1 className='text-4xl md:text-8xl font-black mb-4 text-green-400 tracking-wider filter  glitch-text'>
                 LogIQ
-              </h2>
+              </h1>
               {/* Glitch lines */}
               
             </div>
@@ -96,6 +108,13 @@ const LandingPage = () => {
               <p className="text-slate-300 font-mono text-sm mt-1">
                 &gt; Advanced tracking protocols initialized
               </p>
+              {/* Small app icon accent */}
+              <div className="mt-3 flex items-center justify-center gap-2 text-slate-400 text-xs">
+                <div className="relative w-5 h-5 opacity-80">
+                  <Image src="/icon.png" alt="App icon" fill sizes="20px" className="object-contain" />
+                </div>
+                <span>/public/icon.png in use</span>
+              </div>
             </div>
           </div>
 

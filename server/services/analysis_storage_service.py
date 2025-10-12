@@ -109,10 +109,23 @@ class AnalysisStorageService:
         except Exception as e:
             logger.error(f"Failed to store analysis: {e}")
             raise
-    
+    async def get_total_analysis_count(self, user_id: str) -> int:
+        try:
+            query = {"user_id": user_id}
+            total = await self.collection.count_documents(query)
+            return total
+        except Exception as e:
+            logger.error(f"Error counting analyses for user {user_id}: {str(e)}")
+            return 0
+
     async def get_analysis_result(self, user_id: str, analysis_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve and decrypt analysis result using user's hashed password as decryption key."""
         try:
+            # Validate analysis_id format early to avoid ObjectId errors
+            if not ObjectId.is_valid(analysis_id):
+                logger.warning(f"Invalid analysis id format: {analysis_id}")
+                return None
+
             # Get user's hashed password from database to use as decryption key
             user_doc = await database.get_collection("user_collection").find_one({"username": user_id})
             if not user_doc:
@@ -293,6 +306,10 @@ class AnalysisStorageService:
     async def delete_analysis_result(self, user_id: str, analysis_id: str) -> bool:
         """Delete an analysis result for a specific user."""
         try:
+            if not ObjectId.is_valid(analysis_id):
+                logger.warning(f"Invalid analysis id format for delete: {analysis_id}")
+                return False
+
             result = await self.collection.delete_one({
                 "user_id": user_id,
                 "_id": ObjectId(analysis_id)

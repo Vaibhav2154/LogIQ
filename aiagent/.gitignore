@@ -4,3 +4,4 @@ dist/
 build/
 forensiq_aiagent.egg-info/
 venv/
+logiq_cli.egg-info/
