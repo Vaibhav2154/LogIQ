@@ -78,9 +78,28 @@ const EnhancedVisualizationPage = () => {
   const [dataSource, setDataSource] = useState<'latest' | 'sample'>('latest');
 
   useEffect(() => {
-    // Try to load latest analysis from localStorage first
+    // Always try to load latest analysis from localStorage when component mounts
     loadLatestAnalysis();
   }, []);
+
+  // Add a listener for localStorage changes (when analysis is updated from other pages)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'latestAnalysis' && e.newValue) {
+        try {
+          const newAnalysis = JSON.parse(e.newValue);
+          setAnalysisData(newAnalysis);
+          setDataSource('latest');
+          success('Analysis updated - displaying latest data');
+        } catch (err) {
+          console.error('Error parsing updated analysis:', err);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [success]);
 
   const loadLatestAnalysis = () => {
     try {
@@ -105,24 +124,45 @@ const EnhancedVisualizationPage = () => {
   };
 
   const loadFromAnalysis = async () => {
-    // Try to fetch the latest analysis from the API first, then fall back to localStorage
     setLoading(true);
+    setError(null);
+    
     try {
-      // Try to fetch from API first
-      const response = await fetch('http://localhost:8000/api/v1/latest');
+      // First try to fetch the latest analysis from the API
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/latest`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+      });
+      
       if (response.ok) {
         const data = await response.json();
         if (data.analysis) {
+          // Store the fresh analysis in localStorage
+          localStorage.setItem('latestAnalysis', JSON.stringify(data.analysis));
           setAnalysisData(data.analysis);
           setDataSource('latest');
+          success('Loaded latest analysis from server');
           return;
         }
       }
       
-      // Fall back to localStorage
-      loadLatestAnalysis();
+      // If API fails, fall back to localStorage
+      const storedAnalysis = localStorage.getItem('latestAnalysis');
+      if (storedAnalysis) {
+        const analysisResult = JSON.parse(storedAnalysis);
+        setAnalysisData(analysisResult);
+        setDataSource('latest');
+        info('Loaded cached analysis (server unavailable)');
+      } else {
+        // If no stored analysis, load sample data
+        setAnalysisData(mockAnalysisData);
+        setDataSource('sample');
+        info('No analysis found, loaded sample data');
+      }
     } catch (err) {
-      console.error('Error fetching from API, trying localStorage:', err);
+      console.error('Error fetching from API:', err);
       // Fall back to localStorage
       loadLatestAnalysis();
     } finally {

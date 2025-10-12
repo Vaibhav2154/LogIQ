@@ -294,7 +294,79 @@ const AnalysisPage = () => {
 
           {/* Results Panel */}
           <div className="w-full lg:col-span-2 order-2 lg:order-none flex-1 min-h-0">
-            {analysis ? (
+            {loading ? (
+              <div className="bg-black/80 backdrop-blur-sm border border-cyan-500/30 p-4 sm:p-5 md:p-6 h-full flex flex-col justify-center">
+                {/* CLI Loader Content */}
+                <div className="w-full max-w-xl mx-auto font-mono">
+                  <div className="space-y-4 text-sm">
+                    {/* Command execution header */}
+                    <div className="text-cyan-400 mb-4">
+                      &gt; ./threat_analyzer.exe --input=logs.txt --framework=mitre
+                    </div>
+                    {/* Progress stages */}
+                    <div className="text-green-400 flex items-center">
+                      <span className="animate-pulse mr-2">●</span>
+                      [INITIALIZING] Security analysis engine...
+                    </div>
+                    <div className="text-green-400 flex items-center">
+                      <span className="animate-pulse mr-2 animation-delay-200">●</span>
+                      [LOADING] MITRE ATT&CK framework database...
+                    </div>
+                    <div className="text-green-400 flex items-center">
+                      <span className="animate-pulse mr-2 animation-delay-400">●</span>
+                      [PARSING] Log data and extracting patterns...
+                    </div>
+                    <div className="text-yellow-400 flex items-center">
+                      <span className="animate-pulse mr-2 animation-delay-600">●</span>
+                      [ANALYZING] Threat signatures and IOCs...
+                    </div>
+                    {enhanceWithAI && (
+                      <div className="text-purple-400 flex items-center">
+                        <span className="animate-pulse mr-2 animation-delay-800">●</span>
+                        [AI_PROCESSING] Enhanced threat intelligence...
+                      </div>
+                    )}
+                    <div className="text-orange-400 flex items-center">
+                      <span className="animate-pulse mr-2 animation-delay-1000">●</span>
+                      [MAPPING] Techniques to MITRE ATT&CK framework...
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="mt-6">
+                      <div className="text-cyan-400 mb-2">[PROGRESS]</div>
+                      <div className="w-full bg-gray-900 border border-green-500/30 h-3 relative overflow-hidden rounded">
+                        <div className="h-full bg-gradient-to-r from-green-600 via-cyan-500 to-blue-500 progress-bar"></div>
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent scanning-line"></div>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-400 flex justify-between">
+                        <span>Processing logs...</span>
+                        <span className="text-green-400 animate-pulse">█████████░</span>
+                      </div>
+                    </div>
+                    {/* Scrolling status */}
+                    <div className="mt-4 bg-black/50 border border-gray-700/30 p-3 h-24 overflow-hidden relative rounded">
+                      <div className="text-xs text-green-500/70 space-y-1 scrolling-text">
+                        <div>&gt; Checking registry modifications...</div>
+                        <div>&gt; Scanning for privilege escalation...</div>
+                        <div>&gt; Analyzing network connections...</div>
+                        <div>&gt; Detecting persistence mechanisms...</div>
+                        <div>&gt; Evaluating lateral movement...</div>
+                        <div>&gt; Processing command executions...</div>
+                        <div>&gt; Checking file system changes...</div>
+                        <div>&gt; Analyzing process injections...</div>
+                        <div>&gt; Scanning for data exfiltration...</div>
+                        <div>&gt; Checking registry modifications...</div>
+                        <div>&gt; Scanning for privilege escalation...</div>
+                        <div>&gt; Analyzing network connections...</div>
+                      </div>
+                    </div>
+                    <div className="text-cyan-400 flex items-center mt-4">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-cyan-400 mr-3"></div>
+                      Estimated time remaining: {Math.max(1, Math.ceil((analysis?.processing_time_ms || 8000) / 1000) - 3)}s
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : analysis ? (
               <div className="h-full flex flex-col">
                 {/* Header - Fixed */}
                 <div className="bg-black/80 backdrop-blur-sm border border-cyan-500/30 p-3 sm:p-4 md:p-6 flex-shrink-0">
@@ -511,6 +583,58 @@ const AnalysisPage = () => {
 
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #22d3ee;
+        }
+
+        /* Loader Animations */
+        .animation-delay-200 {
+          animation-delay: 0.2s;
+        }
+        
+        .animation-delay-400 {
+          animation-delay: 0.4s;
+        }
+        
+        .animation-delay-600 {
+          animation-delay: 0.6s;
+        }
+        
+        .animation-delay-800 {
+          animation-delay: 0.8s;
+        }
+        
+        .animation-delay-1000 {
+          animation-delay: 1s;
+        }
+
+        .progress-bar {
+          animation: progressFill 4s ease-out forwards;
+          width: 0%;
+        }
+
+        @keyframes progressFill {
+          0% { width: 0%; }
+          25% { width: 30%; }
+          50% { width: 60%; }
+          75% { width: 85%; }
+          100% { width: 95%; }
+        }
+
+        .scanning-line {
+          animation: scan 2s linear infinite;
+        }
+
+        @keyframes scan {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+
+        .scrolling-text {
+          animation: scrollUp 8s linear infinite;
+        }
+
+        @keyframes scrollUp {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(-50%); }
         }
 
         @media (max-width: 640px) {
