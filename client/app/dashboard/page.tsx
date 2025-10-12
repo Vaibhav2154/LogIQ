@@ -4,6 +4,14 @@ import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import MarkdownRenderer from '@/hooks/MarkDownRenderer'
+import  {exportMarkdownToPdf} from "../../hooks/MarkDownToPdf"
+import { BsGraphUp } from "react-icons/bs";
+import { FaShield } from "react-icons/fa6";
+import { GrValidate } from "react-icons/gr";
+import { FaExclamationTriangle } from "react-icons/fa";
+import { LuScanEye } from "react-icons/lu";
+import { FaSearch } from "react-icons/fa";
+
 
 const DashboardPage = () => {
   const router = useRouter()
@@ -63,7 +71,7 @@ const DashboardPage = () => {
       shortTitle: 'LOG_ANALYSIS',
       description: 'AI-powered analysis of security logs with MITRE ATT&CK technique mapping',
       shortDescription: 'AI-powered log analysis with MITRE mapping',
-      icon: '🔍',
+      icon: <FaSearch />,
       href: '/dashboard/analysis',
       color: 'cyan',
       stats: 'REALTIME_ANALYSIS'
@@ -73,7 +81,7 @@ const DashboardPage = () => {
       shortTitle: 'VISUALIZATION',
       description: 'Enhanced threat visualization dashboard with advanced analytics',
       shortDescription: 'Enhanced threat visualization dashboard',
-      icon: '�',
+      icon: <LuScanEye />,
       href: '/dashboard/visualization',
       color: 'purple',
       stats: 'INTERACTIVE_CHARTS'
@@ -83,7 +91,7 @@ const DashboardPage = () => {
       shortTitle: 'MITRE_ATTACK',
       description: 'Comprehensive threat intelligence and attack technique database',
       shortDescription: 'Threat intelligence and attack technique database',
-      icon: '🛡',
+      icon: <FaShield />,
       href: '/dashboard/mitre',
       color: 'green',
       stats: 'ENTERPRISE_TECH'
@@ -93,7 +101,7 @@ const DashboardPage = () => {
       shortTitle: 'THREAT_INTEL',
       description: 'Advanced threat detection and response capabilities for modern security operations',
       shortDescription: 'Advanced threat detection and response',
-      icon: '⚠',
+      icon: <FaExclamationTriangle />,
       href: '/dashboard',
       color: 'red',
       stats: 'THREAT_INTEL'
@@ -263,6 +271,13 @@ const recentSingleAnalyses  = async(elementId:string)=>{
       default: return 'border-gray-500/30 hover:border-gray-400 text-gray-400 bg-gray-500/10'
     }
   }, [])
+
+const convertUSToIST = (timeG: string | Date) => {
+  const utcDate = new Date(timeG);
+const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 mins in ms
+const istDate = new Date(utcDate.getTime() + istOffset);
+return istDate;
+}
 
   const getSeverityColor = useCallback((severity: string) => {
     switch (severity?.toLowerCase()) {
@@ -511,7 +526,7 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                   {recentAnalyses.length}
                 </p>
               </div>
-              <div className="text-cyan-400 text-lg sm:text-xl">📈</div>
+              <div className="text-cyan-400 text-lg sm:text-xl"><BsGraphUp /></div>
             </div>
           </div>
           
@@ -523,7 +538,7 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                   {totalTechniques}
                 </p>
               </div>
-              <div className="text-green-400 text-lg sm:text-xl">🛡️</div>
+              <div className="text-green-400 text-lg sm:text-xl"><FaShield /></div>
             </div>
           </div>
 
@@ -538,6 +553,7 @@ const recentSingleAnalyses  = async(elementId:string)=>{
               <div className={`text-lg sm:text-xl ${userProfile?.cli_active ? 'text-green-400' : 'text-gray-400'}`}>
                 {userProfile?.cli_active ? '🖥️' : '💤'}
               </div>
+              <div className="text-red-400 text-lg sm:text-xl"><FaExclamationTriangle /></div>
             </div>
           </div>
 
@@ -547,7 +563,7 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                 <p className="text-green-400 text-xs">[SYSTEM_STATUS]</p>
                 <p className="text-sm sm:text-base font-bold text-green-400">ONLINE</p>
               </div>
-              <div className="text-green-400 text-lg sm:text-xl">✅</div>
+              <div className="text-green-400 text-lg sm:text-xl"><GrValidate/></div>
             </div>
           </div>
         </div>
@@ -631,7 +647,7 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                           &gt; ANALYSIS_#{index + 1}
                         </h4>
                         <p className="text-xs text-gray-400">
-                          [{formatTimestamp(analysis?.analysis_timestamp)}]
+                          [{convertUSToIST(analysis.analysis_timestamp).toLocaleString()}]
                         </p>
                       </div>
                     </div>
@@ -706,13 +722,17 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                 </button>
               </div>
 
+          
               {/* Modal Content */}
               <div className="p-6 overflow-y-auto max-h-[70vh]">
                 {/* Analysis Timestamp */}
                 <div className="mb-6">
                   <div className="text-cyan-400 text-sm mb-2">[ANALYSIS_TIMESTAMP]</div>
                   <div className="bg-black/50 border border-gray-700/30 p-3 text-green-400">
-                    &gt; {formatTimestamp(selectedAnalysis.analysis_timestamp)}
+                    &gt; 
+
+    <div>{convertUSToIST(selectedAnalysis.analysis_timestamp).toLocaleString()}</div>
+    
                   </div>
                 </div>
 
@@ -720,7 +740,7 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                 <div className="mb-6">
                   <div className="text-cyan-400 text-sm mb-2">[PROCESSING_TIME_MS]</div>
                   <div className="bg-black/50 border border-gray-700/30 p-3 text-green-400">
-                    &gt; {selectedAnalysis.processing_time_ms?.toFixed(2) || 'N/A'} ms
+                    &gt; {(selectedAnalysis.processing_time_ms/1000)?.toFixed(2) || 'N/A'} s
                   </div>
                 </div>
 
@@ -780,15 +800,13 @@ const recentSingleAnalyses  = async(elementId:string)=>{
                   >
                     [VIEW_VISUALIZATION]
                   </button>
+                  
                   <button
-                    onClick={() => {
-                      console.log('Export analysis:', selectedAnalysis)
-                      // In a real app, this would trigger an export function
-                    }}
-                    className="px-4 py-2 bg-black border-2 border-cyan-500 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,255,255,0.5)] font-mono text-sm"
-                  >
-                    [EXPORT]
-                  </button>
+  onClick={() => selectedAnalysis && exportMarkdownToPdf(selectedAnalysis.summary)}
+  className="px-4 py-2 bg-black border-2 border-cyan-500 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,255,255,0.5)] font-mono text-sm"
+>
+  [EXPORT]
+</button>
                 </div>
               </div>
             </div>

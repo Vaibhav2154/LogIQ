@@ -2,6 +2,9 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { FaAlignLeft, FaSearch  } from "react-icons/fa";
+import { FaShield } from "react-icons/fa6";
+import { HiMiniComputerDesktop } from "react-icons/hi2";
 
 
 const Navbar = () => {
@@ -11,10 +14,10 @@ const Navbar = () => {
   const [isMobile, setIsMobile] = useState(false)
 
   const navItems = [
-    { name: 'DASHBOARD.SYS', href: '/dashboard', icon: '📊', shortName: 'DASH' },
-    { name: 'MITRE_ATTACK.DB', href: '/dashboard/mitre', icon: '🛡️', shortName: 'MITRE' },
-    { name: 'ANALYSIS.EXE', href: '/dashboard/analysis', icon: '🔍', shortName: 'ANALYZE' },
-    { name: 'CLI_GUIDE', href: '/dashboard/cliguide', icon: '🖥️', shortName: 'CLI' }
+    { name: 'DASHBOARD.SYS', href: '/dashboard', icon: <FaAlignLeft />, shortName: 'DASH' },
+    { name: 'MITRE_ATTACK.DB', href: '/dashboard/mitre', icon: <FaShield />, shortName: 'MITRE' },
+    { name: 'ANALYSIS.EXE', href: '/dashboard/analysis', icon:<FaSearch />, shortName: 'ANALYZE' },
+    { name: 'CLI_GUIDE', href: '/dashboard/cliguide', icon: <HiMiniComputerDesktop />, shortName: 'CLI' }
   ]
 
   useEffect(() => {

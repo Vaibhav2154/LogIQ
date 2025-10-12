@@ -507,7 +507,7 @@ const AnalysisPage = () => {
         </div>
         
         <div className="hidden sm:block absolute bottom-32 left-16 text-green-500/20 font-mono text-xs animate-pulse delay-2000">
-          [ANALYSIS@FORENSIQ]#
+          [ANALYSIS@LOGIQ]#
         </div>
       </div>
 
