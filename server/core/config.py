@@ -64,3 +64,10 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+# Reduce noisy warnings from passlib's bcrypt handler with bcrypt>=4
+try:
+  logging.getLogger("passlib.handlers.bcrypt").setLevel(logging.ERROR)
+except Exception:
+  # Best-effort suppression; continue if logger isn't present yet
+  pass

@@ -591,7 +591,7 @@ return istDate;
           <div className="bg-black/80 backdrop-blur-sm border border-green-500/30 p-3 sm:p-4 font-mono">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-400 text-xs">[MITRE_TECHNIQUES]</p>
+                <p className="text-green-400 text-xs">[TOTAL_TECHNIQUES_PROCESSED]</p>
                 <p className="text-xl sm:text-2xl font-bold text-green-400">
                   {totalTechniques}
                 </p>

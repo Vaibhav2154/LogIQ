@@ -16,9 +16,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "LogIQ - Cyber Threat Analysis Platform",
   description: "Advanced log analysis and threat detection using AI-powered MITRE ATT&CK framework",
-  icons: {
-    icon: "/icon.png",
-  },
 };
 
 export default function RootLayout({
