@@ -80,7 +80,7 @@ const EnhancedThreatDashboard: React.FC<{ analysisData: EnhancedAnalysisData }> 
       technique: tech.name.substring(0, 15) + '...',
       risk: Math.round(tech.relevance_score * 100),
       phase: tech.kill_chain_phases[0] || 'unknown',
-      timestamp: `T+${index * 5}min`
+      timestamp: `Step ${index + 1}`
     }));
   }, [analysisData]);
 
@@ -104,13 +104,25 @@ const EnhancedThreatDashboard: React.FC<{ analysisData: EnhancedAnalysisData }> 
 
   // Technique sophistication radar
   const sophisticationData = useMemo(() => {
+    const getPhaseScore = (targetPhases: string[]) => {
+      const relevantTechs = analysisData.matched_techniques.filter(t => 
+        t.kill_chain_phases.some(p => targetPhases.includes(p))
+      );
+      if (relevantTechs.length === 0) return 20; // Base baseline score
+      return Math.min(100, Math.round(Math.max(...relevantTechs.map(t => t.relevance_score)) * 100) + 10);
+    };
+
+    const avgScore = analysisData.matched_techniques.length > 0
+      ? (analysisData.matched_techniques.reduce((acc, t) => acc + t.relevance_score, 0) / analysisData.matched_techniques.length) * 100
+      : 20;
+
     const sophistication = {
-      'Technical Complexity': Math.random() * 100,
-      'Evasion Capability': Math.random() * 100,
-      'Impact Potential': Math.random() * 100,
-      'Detection Difficulty': Math.random() * 100,
-      'Persistence Level': Math.random() * 100,
-      'Lateral Movement': Math.random() * 100
+      'Technical Complexity': Math.min(100, Math.round(avgScore) + 10),
+      'Evasion Capability': getPhaseScore(['defense-evasion', 'anti-forensics']),
+      'Impact Potential': getPhaseScore(['impact', 'exfiltration', 'collection']),
+      'Detection Difficulty': getPhaseScore(['defense-evasion', 'stealth']),
+      'Persistence Level': getPhaseScore(['persistence', 'privilege-escalation']),
+      'Lateral Movement': getPhaseScore(['lateral-movement', 'discovery'])
     };
 
     return Object.entries(sophistication).map(([subject, value]) => ({

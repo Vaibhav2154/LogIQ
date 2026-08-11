@@ -59,11 +59,17 @@ async def login(login_data: LoginRequest):
     password = login_data.password
     
     # Try to find user by email first (for frontend compatibility)
-    user = await database.user_collection.find_one({"email": username_or_email})
-    
-    # If not found by email, try by username
-    if not user:
-        user = await database.user_collection.find_one({"username": username_or_email})
+    try:
+        user = await database.user_collection.find_one({"email": username_or_email})
+        # If not found by email, try by username
+        if not user:
+            user = await database.user_collection.find_one({"username": username_or_email})
+    except Exception:
+        # Database not reachable or SSL/TLS handshake failed
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service temporarily unavailable. Please try again later."
+        )
     
     if not user or not security.verify_password(password, user["hashed_password"]):
         raise HTTPException(
@@ -71,7 +77,6 @@ async def login(login_data: LoginRequest):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
     access_token = security.create_access_token(data={"sub": user["username"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -83,11 +88,16 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     This endpoint is used by Swagger UI's "Authorize" button.
     """
     # Try to find user by email first
-    user = await database.user_collection.find_one({"email": form_data.username})
-    
-    # If not found by email, try by username
-    if not user:
-        user = await database.user_collection.find_one({"username": form_data.username})
+    try:
+        user = await database.user_collection.find_one({"email": form_data.username})
+        # If not found by email, try by username
+        if not user:
+            user = await database.user_collection.find_one({"username": form_data.username})
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service temporarily unavailable. Please try again later."
+        )
     
     if not user or not security.verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(

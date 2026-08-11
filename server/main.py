@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from contextlib import asynccontextmanager
 from datetime import datetime
 from core import Config, logger
@@ -132,13 +133,14 @@ async def health_check():
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Global exception handler for unhandled errors."""
-    logger.error(f"Unhandled exception: {str(exc)}")
+    logger.exception(f"Unhandled exception: {str(exc)}")
+    error_payload = ErrorResponse(
+        error="Internal server error",
+        detail=str(exc)
+    )
     return JSONResponse(
         status_code=500,
-        content=ErrorResponse(
-            error="Internal server error",
-            detail=str(exc)
-        ).dict()
+        content=jsonable_encoder(error_payload)
     )
 
 if __name__ == "__main__":

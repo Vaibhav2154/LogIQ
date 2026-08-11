@@ -236,7 +236,12 @@ Based on the analysis of this incident, **immediate containment** and investigat
 
   // Generate threat actor profile
   const threatActorProfile: ThreatActor = useMemo(() => {
-    const avgSophistication = data.matched_techniques.reduce((sum, t) => sum + t.relevance_score, 0) / data.matched_techniques.length;
+    const techniquesCount = data.matched_techniques.length;
+    if (techniquesCount === 0) {
+      return { name: 'Unknown Actor', sophistication: 0, motivation: 'Unknown', tactics: [] };
+    }
+    
+    const avgSophistication = data.matched_techniques.reduce((sum, t) => sum + t.relevance_score, 0) / techniquesCount;
     const uniquePhases = [...new Set(data.matched_techniques.flatMap(t => t.kill_chain_phases))];
     
     return {
