@@ -66,6 +66,47 @@ class GeminiService:
             logger.error(f"Error in log summarization: {str(e)}")
             return f"Error generating summary: {str(e)}"
     
+    async def extract_search_query(self, logs: str, summary: str) -> str:
+        """
+        Extract a concise, search-optimized query for ChromaDB vector search.
+        
+        The full summary is verbose and structured (with numbered sections), which
+        causes the embedding model to focus on the boilerplate rather than the
+        actual observed behaviors. This method extracts a tight, behavior-focused
+        query string for more accurate MITRE ATT&CK technique matching.
+        
+        Args:
+            logs (str): The original raw log input
+            summary (str): The Gemini-generated summary
+            
+        Returns:
+            str: A concise behavior-focused search query
+        """
+        try:
+            prompt = f"""You are a cybersecurity expert. Based on the following log analysis summary, 
+extract the key malicious or suspicious behaviors and techniques observed. 
+Return ONLY a concise list of technical behaviors (max 5-8 bullet points), 
+focusing on what the attacker DID (e.g., "queried registry keys", "executed powershell with encoded arguments", 
+"disabled Windows event logging"). Do NOT include remediation, context, or general descriptions.
+Do NOT include numbered sections or headers.
+
+LOG SUMMARY:
+{summary[:3000]}
+
+BEHAVIORS (concise technical list):"""
+            
+            response = self.model.generate_content(prompt)
+            if response and response.text:
+                logger.info("Successfully extracted search query from summary")
+                return response.text.strip()
+            else:
+                # Fall back to first 500 chars of summary as a reasonable approximation
+                logger.warning("Empty response for query extraction, using summary excerpt")
+                return summary[:500]
+        except Exception as e:
+            logger.error(f"Error extracting search query: {str(e)}")
+            return summary[:500]
+
     async def enhance_threat_analysis(self, summary: str, attack_techniques: list) -> str:
         """
         Enhance the threat analysis by correlating with MITRE ATT&CK techniques.

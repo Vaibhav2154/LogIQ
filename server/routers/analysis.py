@@ -68,10 +68,17 @@ async def analyze_logs(request: LogAnalysisRequest, current_user: dict = Depends
                 detail=f"Failed to generate log summary: {summary}"
             )
         
-        # Step 2: Search for matching MITRE ATT&CK techniques
+        # Step 2: Extract a focused search query from the summary
+        # Using the full verbose summary causes the embedding model to match
+        # generic boilerplate instead of the actual observed attacker behaviors.
+        logger.info("Extracting focused search query from summary")
+        search_query = await gemini_service.extract_search_query(request.logs, summary)
+        logger.info(f"Search query extracted ({len(search_query)} chars)")
+
+        # Step 3: Search for matching MITRE ATT&CK techniques using the focused query
         logger.info("Searching for matching ATT&CK techniques")
         techniques_data = await chromadb_service.search_techniques(
-            query=summary,
+            query=search_query,
             n_results=request.max_results
         )
         
@@ -432,4 +439,46 @@ async def get_user_analytics(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get analytics: {str(e)}"
+        )
+
+
+@router.get("/latest")
+async def get_latest_analysis(
+    current_user: dict = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Get the most recent analysis result for the authenticated user.
+    Used by the visualization page to load the latest data without relying
+    solely on browser localStorage.
+
+    Returns:
+        {"analysis": LogAnalysisResponse} or {"analysis": null} if none found
+    """
+    try:
+        history = await analysis_storage_service.get_user_analysis_history(
+            user_id=current_user["username"],
+            limit=1,
+            offset=0
+        )
+        if not history:
+            logger.info(f"No analysis history found for user {current_user['username']}")
+            return {"analysis": None}
+
+        latest_id = history[0].id
+        result = await analysis_storage_service.get_analysis_result(
+            user_id=current_user["username"],
+            analysis_id=latest_id
+        )
+
+        if not result:
+            return {"analysis": None}
+
+        logger.info(f"Returning latest analysis {latest_id} for user {current_user['username']}")
+        return {"analysis": result}
+
+    except Exception as e:
+        logger.error(f"Error getting latest analysis: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get latest analysis: {str(e)}"
         )
