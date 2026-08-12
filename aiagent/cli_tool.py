@@ -60,9 +60,9 @@ import rich.traceback
 rich.traceback.install()
 
 # Import AI Agent and Dynamic Log Extractor (package-relative imports)
-from .ai_agent import AIAgent
-from .dynamic_log_extractor import DynamicLogExtractor
-from .Scripts.prerag_classifier import PreRAGClassifier
+from ai_agent import AIAgent
+from dynamic_log_extractor import DynamicLogExtractor
+from Scripts.prerag_classifier import PreRAGClassifier
 
 # Initialize Rich Console
 console = Console()
@@ -185,7 +185,7 @@ class LogIQCLI:
         
         # Initialize MongoDB service (lazy import to avoid import-time env errors)
         try:
-            from . import mongodb_service as _mongodb_module
+            import mongodb_service as _mongodb_module
             # Prefer global instance if defined by module
             self.mongodb_service = getattr(_mongodb_module, 'mongodb_service', None)
             if self.mongodb_service:
@@ -2354,7 +2354,7 @@ def main():
         if hasattr(cli, '_stored_encrypted_credentials'):
             # Only try auto-login for commands that need authentication
             needs_auth_commands = ['monitor', 'analyze', 'profile', 'agent', 'data']
-            if args.command in needs_auth_commands:
+            if args.command in needs_auth_commands or (args.command == 'auth' and args.auth_command not in ['login', 'register']):
                 password = getpass.getpass(f"🔑 Password to decrypt stored credentials for {cli._stored_username}: ")
                 cli.encryption_key = cli._generate_encryption_key(password)
                 if cli._load_stored_token():
